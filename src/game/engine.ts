@@ -156,7 +156,8 @@ function handleNightWitch(game:GameState){
 
 function handleDawn(game:GameState){
   const deaths=game.currentNight.deaths;
-  game.publicLog.push(entry(game,deaths.length?`昨夜死亡：${deaths.map(s=>`${s}号`).join('、')}。身份不公开。`:'昨夜平安夜。'));
+  const deathSummary=deaths.map(s=>`${s}号${game.config.revealOnDeath?`（${ROLE_NAMES[playerAt(game,s)!.role]}）`:''}`).join('、');
+  game.publicLog.push(entry(game,deaths.length?`昨夜死亡：${deathSummary}。${game.config.revealOnDeath?'':'身份不公开。'}`:'昨夜平安夜。'));
   const hunter=eligibleHunter(game);
   if(game.config.nightDeathLastWords&&deaths.length)game.phase='last_words';
   else if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}
@@ -173,7 +174,7 @@ function handleDaySpeech(game:GameState){game.phase='day_vote';}
 
 function finishVotedElimination(game:GameState,seat:number){
   eliminate(game,seat,'vote');
-  game.publicLog.push(entry(game,`${seat}号被放逐。身份不公开。`));
+  game.publicLog.push(entry(game,`${seat}号被放逐。${game.config.revealOnDeath?`身份是${ROLE_NAMES[playerAt(game,seat)!.role]}。`:'身份不公开。'}`));
   const hunter=eligibleHunter(game);
   if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}
   else if(!setWinnerIfAny(game))startNextNight(game);
@@ -198,7 +199,7 @@ function handleRunoffVote(game:GameState){
 
 function handleHunterAction(game:GameState){
   const action=[...game.actions].reverse().find(a=>a.day===game.day&&a.phase==='hunter_action'&&a.playerId===game.pendingHunterId);
-  if(action?.action.kind==='shoot'){eliminate(game,action.action.targetSeat!,'shot');game.publicLog.push(entry(game,`猎人开枪带走了 ${action.action.targetSeat}号。`));}
+  if(action?.action.kind==='shoot'){eliminate(game,action.action.targetSeat!,'shot');const target=playerAt(game,action.action.targetSeat!);game.publicLog.push(entry(game,`猎人开枪带走了 ${action.action.targetSeat}号。${game.config.revealOnDeath?`身份是${ROLE_NAMES[target!.role]}。`:''}`));}
   else game.publicLog.push(entry(game,'猎人选择不开枪。'));
   game.pendingHunterId=undefined;
   if(!setWinnerIfAny(game)){
@@ -222,5 +223,5 @@ export function advanceGame(game:GameState,options:AdvanceOptions={}):GameState 
 
 function startNextNight(game:GameState){game.day+=1;game.phase='night_wolf';game.currentNight={deaths:[]};game.runoffSeats=[];game.publicLog.push(entry(game,`第 ${game.day} 天夜晚开始。`));}
 
-export function publicReport(game:GameState):object {return {title:game.title,status:game.phase==='ended'?'已结束':'进行中',day:game.day,phase:PHASE_NAMES[game.phase],winner:game.winner,players:game.players.map(p=>({seat:p.seat,name:p.name,modelLabel:p.modelLabel,alive:p.alive,...(game.phase==='ended'?{role:ROLE_NAMES[p.role]}:{})})),publicLog:game.publicLog};}
+export function publicReport(game:GameState):object {return {title:game.title,status:game.phase==='ended'?'已结束':'进行中',day:game.day,phase:PHASE_NAMES[game.phase],winner:game.winner,players:game.players.map(p=>({seat:p.seat,name:p.name,modelLabel:p.modelLabel,alive:p.alive,...(game.phase==='ended'||!p.alive&&game.config.revealOnDeath?{role:ROLE_NAMES[p.role]}:{})})),publicLog:game.publicLog};}
 export function fullReport(game:GameState):object {if(game.phase!=='ended')throw new Error('完整复盘只能在游戏结束后导出');return {...game,players:game.players.map(p=>({...p,roleName:ROLE_NAMES[p.role]}))};}

@@ -43,11 +43,13 @@ describe('GameView API', () => {
         body: JSON.stringify(input),
       });
       expect(created.pendingPlayerIds).toHaveLength(7);
+      expect(created.canUndo).toBe(false);
 
       const started = await json<GameView>(`${base}/api/games/${created.id}/advance`, {
         method: 'POST',
         body: '{}',
       });
+      expect(started.canUndo).toBe(true);
       const wolves = started.players.filter((player) => player.role === 'wolf');
       expect(started.pendingPlayerIds).toEqual(wolves.map((player) => player.id));
 
@@ -60,6 +62,15 @@ describe('GameView API', () => {
         }),
       });
       expect(afterFirstWolf.pendingPlayerIds).toEqual([wolves[1].id]);
+      expect(afterFirstWolf.canUndo).toBe(true);
+
+      const undone = await json<GameView>(`${base}/api/games/${created.id}/undo`, {
+        method: 'POST',
+        body: '{}',
+      });
+      expect(undone.pendingPlayerIds).toEqual(wolves.map((player) => player.id));
+      expect(undone.actions).toHaveLength(0);
+      expect(undone.canUndo).toBe(false);
     } finally {
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),

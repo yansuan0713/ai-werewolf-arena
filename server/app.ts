@@ -15,10 +15,10 @@ import type { GameState } from '../src/shared/types.js';
 import { GameStore } from './store.js';
 import { validateActionBody, validateAdvanceBody, validateCreateGameInput, validateParseBody } from './validation.js';
 
-export type GameView = GameState & { pendingPlayerIds: string[] };
+export type GameView = GameState & { pendingPlayerIds: string[]; canUndo: boolean };
 
-export function toGameView(game: GameState): GameView {
-  return { ...game, pendingPlayerIds: pendingPlayerIds(game) };
+export function toGameView(game: GameState, canUndo = false): GameView {
+  return { ...game, pendingPlayerIds: pendingPlayerIds(game), canUndo };
 }
 
 const param = (value: string | string[]) => (Array.isArray(value) ? value[0] : value);
@@ -36,7 +36,10 @@ export function createApp(store = new GameStore(), staticDir?: string) {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get(
     '/api/games',
-    asyncRoute(async (_req, res) => res.json((await store.list()).map(toGameView))),
+    asyncRoute(async (_req, res) => {
+      const games = await store.list();
+      res.json(await Promise.all(games.map(async game => toGameView(game, await store.canUndo(game.id)))));
+    }),
   );
   app.post(
     '/api/games',
@@ -47,7 +50,10 @@ export function createApp(store = new GameStore(), staticDir?: string) {
   );
   app.get(
     '/api/games/:id',
-    asyncRoute(async (req, res) => res.json(toGameView(await store.get(param(req.params.id))))),
+    asyncRoute(async (req, res) => {
+      const id = param(req.params.id);
+      res.json(toGameView(await store.get(id), await store.canUndo(id)));
+    }),
   );
   app.delete(
     '/api/games/:id',
@@ -85,15 +91,24 @@ export function createApp(store = new GameStore(), staticDir?: string) {
     asyncRoute(async (req, res) => {
       const game = await store.get(param(req.params.id));
       const { playerId, action, raw } = validateActionBody(req.body);
-      const saved = await store.save(submitAction(game, playerId, action, raw));
-      res.json(toGameView(saved));
+      const next = submitAction(structuredClone(game), playerId, action, raw);
+      const saved = await store.save(next, { undo: game });
+      res.json(toGameView(saved, true));
     }),
   );
   app.post(
     '/api/games/:id/advance',
     asyncRoute(async (req, res) => {
       const game = await store.get(param(req.params.id));
-      res.json(toGameView(await store.save(advanceGame(game, validateAdvanceBody(req.body)))));
+      const next = advanceGame(structuredClone(game), validateAdvanceBody(req.body));
+      res.json(toGameView(await store.save(next, { undo: game }), true));
+    }),
+  );
+  app.post(
+    '/api/games/:id/undo',
+    asyncRoute(async (req, res) => {
+      const restored = await store.undo(param(req.params.id));
+      res.json(toGameView(restored, false));
     }),
   );
   app.get(
