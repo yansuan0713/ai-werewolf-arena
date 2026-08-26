@@ -1,3 +1,4 @@
 import { describe,expect,it } from 'vitest';
 import { parseReply } from '../src/game/parser';
 describe('回复解析',()=>{it('容忍 Markdown、空格与 HTML 实体',()=>{const r=parseReply('**【 击杀建议： 3 号 】** &lt;b&gt;分析&lt;/b&gt; 【投票：弃票】');expect(r).toMatchObject([{kind:'kill',targetSeat:3},{kind:'vote',abstain:true}]);});it('提取发言但不把普通文字当行动',()=>{expect(parseReply('我考虑投 2 号。')).toHaveLength(0);expect(parseReply('【公开发言】大家好')).toMatchObject([{kind:'speech',text:'大家好'}]);});});
+describe('宽松回复解析',()=>{it('仅在显式启用时支持缺少冒号或括号的格式',()=>{const raw='【击杀 3号】 【投票 4号】 投票：弃票';expect(parseReply(raw)).toHaveLength(0);expect(parseReply(raw,{loose:true})).toMatchObject([{kind:'kill',targetSeat:3},{kind:'vote',targetSeat:4},{kind:'vote',abstain:true}]);});it('不会重复返回已被严格模式捕获的行动',()=>{expect(parseReply('【投票：3号】',{loose:true})).toMatchObject([{kind:'vote',targetSeat:3}]);expect(parseReply('【投票：3号】',{loose:true})).toHaveLength(1);});});

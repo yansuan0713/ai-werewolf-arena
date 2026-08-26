@@ -66,4 +66,32 @@ describe('GameView API', () => {
       );
     }
   });
+
+  it('拒绝非法 POST body 且不修改对局存档', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'werewolf-validation-'));
+    dirs.push(dir);
+    const store = new GameStore(dir);
+    const server = createApp(store).listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const send = (url: string, body: unknown) => fetch(`${base}${url}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    try {
+      expect((await send('/api/games', { assignment: 'manual', players: [] })).status).toBe(400);
+      expect(await store.list()).toHaveLength(0);
+      const input: CreateGameInput = {
+        assignment: 'manual',
+        players: ['wolf', 'wolf', 'seer', 'witch', 'hunter', 'villager', 'villager'].map((role, index) => ({ name: `P${index + 1}`, modelLabel: 'test', role: role as CreateGameInput['players'][number]['role'] })),
+      };
+      const created = await json<GameView>(`${base}/api/games`, { method: 'POST', body: JSON.stringify(input) });
+      const started = await json<GameView>(`${base}/api/games/${created.id}/advance`, { method: 'POST', body: '{}' });
+      const wolf = started.players.find((player) => player.role === 'wolf')!;
+      expect((await send(`/api/games/${created.id}/actions`, { playerId: wolf.id, raw: 'hack', action: { kind: 'hack', matched: 'hack' } })).status).toBe(400);
+      expect((await send(`/api/games/${created.id}/actions`, { playerId: wolf.id, raw: '【击杀：0号】', action: { kind: 'kill', targetSeat: 0, matched: '【击杀：0号】' } })).status).toBe(400);
+      expect((await send(`/api/games/${created.id}/advance`, { wolfResolution: -1 })).status).toBe(400);
+      expect((await send('/api/parse', { raw: 42 })).status).toBe(400);
+      expect((await store.get(created.id)).actions).toHaveLength(0);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
 });

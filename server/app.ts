@@ -11,8 +11,9 @@ import {
   submitAction,
 } from '../src/game/engine.js';
 import { parseReply } from '../src/game/parser.js';
-import type { CreateGameInput, GameState, ParsedAction } from '../src/shared/types.js';
+import type { GameState } from '../src/shared/types.js';
 import { GameStore } from './store.js';
+import { validateActionBody, validateAdvanceBody, validateCreateGameInput, validateParseBody } from './validation.js';
 
 export type GameView = GameState & { pendingPlayerIds: string[] };
 
@@ -40,7 +41,7 @@ export function createApp(store = new GameStore(), staticDir?: string) {
   app.post(
     '/api/games',
     asyncRoute(async (req, res) => {
-      const game = await store.save(createGame(req.body as CreateGameInput));
+      const game = await store.save(createGame(validateCreateGameInput(req.body)));
       res.status(201).json(toGameView(game));
     }),
   );
@@ -74,22 +75,17 @@ export function createApp(store = new GameStore(), staticDir?: string) {
   );
   app.post(
     '/api/parse',
-    asyncRoute(async (req, res) =>
-      res.json({ actions: parseReply(String(req.body.raw || '')) }),
-    ),
+    asyncRoute(async (req, res) => {
+      const { raw, loose } = validateParseBody(req.body);
+      res.json({ actions: parseReply(raw, { loose }) });
+    }),
   );
   app.post(
     '/api/games/:id/actions',
     asyncRoute(async (req, res) => {
       const game = await store.get(param(req.params.id));
-      const saved = await store.save(
-        submitAction(
-          game,
-          String(req.body.playerId),
-          req.body.action as ParsedAction,
-          String(req.body.raw || ''),
-        ),
-      );
+      const { playerId, action, raw } = validateActionBody(req.body);
+      const saved = await store.save(submitAction(game, playerId, action, raw));
       res.json(toGameView(saved));
     }),
   );
@@ -97,7 +93,7 @@ export function createApp(store = new GameStore(), staticDir?: string) {
     '/api/games/:id/advance',
     asyncRoute(async (req, res) => {
       const game = await store.get(param(req.params.id));
-      res.json(toGameView(await store.save(advanceGame(game, req.body || {}))));
+      res.json(toGameView(await store.save(advanceGame(game, validateAdvanceBody(req.body)))));
     }),
   );
   app.get(

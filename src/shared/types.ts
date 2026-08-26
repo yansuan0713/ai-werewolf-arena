@@ -9,7 +9,8 @@ export const PHASE_NAMES: Record<Phase, string> = { setup:'设置',night_wolf:'�
 export type DeathCause = 'wolf' | 'poison' | 'vote' | 'shot';
 export interface Player { id:string; seat:number; name:string; modelLabel:string; role:Role; alive:boolean; deathCause?:DeathCause; }
 export interface GameConfig { nightDeathLastWords:boolean; firstNightSelfSave:boolean; revealOnDeath:boolean; }
-export type ActionKind = 'kill'|'inspect'|'antidote'|'poison'|'no_medicine'|'none'|'vote'|'speech'|'last_words'|'shoot'|'no_shoot';
+export const ACTION_KINDS = ['kill','inspect','antidote','poison','no_medicine','none','vote','speech','last_words','shoot','no_shoot'] as const;
+export type ActionKind = (typeof ACTION_KINDS)[number];
 export interface ParsedAction { kind:ActionKind; targetSeat?:number; text?:string; abstain?:boolean; matched:string; }
 export interface ActionRecord { id:string; day:number; phase:Phase; playerId:string; action:ParsedAction; raw:string; timestamp:string; result?:string; }
 export interface LogEntry { id:string; timestamp:string; day:number; phase:Phase; message:string; }

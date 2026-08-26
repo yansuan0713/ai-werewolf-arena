@@ -129,42 +129,94 @@ function tallyVotes(game:GameState,phase:'day_vote'|'runoff_vote'):{leaders:numb
   const max=Math.max(0,...Object.values(counts)); return {counts,leaders:max?Object.keys(counts).map(Number).filter(s=>counts[s]===max):[]};
 }
 
-export function advanceGame(game:GameState,options:{wolfResolution?:number|null}={}):GameState {
+type AdvanceOptions={wolfResolution?:number|null};
+type PhaseHandler=(game:GameState,options:AdvanceOptions)=>void;
+
+function handleSetup(game:GameState){game.started=true;game.day=1;game.phase='night_wolf';game.publicLog.push(entry(game,'对局正式开始，天黑请闭眼。'));}
+
+function handleNightWolf(game:GameState,options:AdvanceOptions){
+  const choices=game.actions.filter(a=>a.day===game.day&&a.phase==='night_wolf').map(a=>a.action.targetSeat!);
+  const unique=[...new Set(choices)];
+  if(unique.length===1)game.currentNight.wolfTarget=unique[0];
+  else if('wolfResolution' in options)game.currentNight.wolfTarget=options.wolfResolution??null;
+  else throw new Error('狼人意见不一致，需要上帝裁定目标或选择空刀');
+  game.phase='night_seer';
+}
+
+function handleNightSeer(game:GameState){game.phase='night_witch';}
+
+function handleNightWitch(game:GameState){
+  const deaths:number[]=[];
+  if(game.currentNight.wolfTarget&&game.currentNight.savedSeat!==game.currentNight.wolfTarget)deaths.push(game.currentNight.wolfTarget);
+  if(game.currentNight.poisonedSeat&&!deaths.includes(game.currentNight.poisonedSeat))deaths.push(game.currentNight.poisonedSeat);
+  game.currentNight.deaths=deaths;
+  deaths.forEach(s=>eliminate(game,s,s===game.currentNight.poisonedSeat?'poison':'wolf'));
+  game.phase='dawn';
+}
+
+function handleDawn(game:GameState){
+  const deaths=game.currentNight.deaths;
+  game.publicLog.push(entry(game,deaths.length?`昨夜死亡：${deaths.map(s=>`${s}号`).join('、')}。身份不公开。`:'昨夜平安夜。'));
+  const hunter=eligibleHunter(game);
+  if(game.config.nightDeathLastWords&&deaths.length)game.phase='last_words';
+  else if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}
+  else if(!setWinnerIfAny(game))game.phase='day_speech';
+}
+
+function handleLastWords(game:GameState){
+  const hunter=eligibleHunter(game);
+  if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}
+  else if(!setWinnerIfAny(game))game.phase='day_speech';
+}
+
+function handleDaySpeech(game:GameState){game.phase='day_vote';}
+
+function finishVotedElimination(game:GameState,seat:number){
+  eliminate(game,seat,'vote');
+  game.publicLog.push(entry(game,`${seat}号被放逐。身份不公开。`));
+  const hunter=eligibleHunter(game);
+  if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}
+  else if(!setWinnerIfAny(game))startNextNight(game);
+}
+
+function handleDayVote(game:GameState){
+  const {leaders,counts}=tallyVotes(game,'day_vote');
+  game.publicLog.push(entry(game,`投票统计：${Object.entries(counts).map(([s,c])=>`${s}号 ${c}票`).join('，')||'全部弃票'}`));
+  if(leaders.length>1){game.runoffSeats=leaders;game.phase='runoff_speech';}
+  else if(leaders.length===1)finishVotedElimination(game,leaders[0]);
+  else startNextNight(game);
+}
+
+function handleRunoffSpeech(game:GameState){game.phase='runoff_vote';}
+
+function handleRunoffVote(game:GameState){
+  const {leaders,counts}=tallyVotes(game,'runoff_vote');
+  game.publicLog.push(entry(game,`PK 投票统计：${Object.entries(counts).map(([s,c])=>`${s}号 ${c}票`).join('，')||'全部弃票'}`));
+  if(leaders.length===1)finishVotedElimination(game,leaders[0]);
+  else{game.publicLog.push(entry(game,'再次平票，本轮无人出局。'));startNextNight(game);}
+}
+
+function handleHunterAction(game:GameState){
+  const action=[...game.actions].reverse().find(a=>a.day===game.day&&a.phase==='hunter_action'&&a.playerId===game.pendingHunterId);
+  if(action?.action.kind==='shoot'){eliminate(game,action.action.targetSeat!,'shot');game.publicLog.push(entry(game,`猎人开枪带走了 ${action.action.targetSeat}号。`));}
+  else game.publicLog.push(entry(game,'猎人选择不开枪。'));
+  game.pendingHunterId=undefined;
+  if(!setWinnerIfAny(game)){
+    const hasDayVote=game.actions.some(a=>a.day===game.day&&(a.phase==='day_vote'||a.phase==='runoff_vote'));
+    if(game.currentNight.deaths.length&&!hasDayVote)game.phase='day_speech';
+    else startNextNight(game);
+  }
+}
+
+const phaseHandlers:Record<Exclude<Phase,'ended'>,PhaseHandler>={
+  setup:handleSetup,night_wolf:handleNightWolf,night_seer:handleNightSeer,night_witch:handleNightWitch,dawn:handleDawn,last_words:handleLastWords,day_speech:handleDaySpeech,day_vote:handleDayVote,runoff_speech:handleRunoffSpeech,runoff_vote:handleRunoffVote,hunter_action:handleHunterAction,
+};
+
+export function advanceGame(game:GameState,options:AdvanceOptions={}):GameState {
   if(game.phase==='ended') throw new Error('对局已结束');
   const pending=pendingPlayerIds(game);
   if(pending.length&&!['setup','dawn'].includes(game.phase)) throw new Error(`仍有 ${pending.length} 名玩家未行动`);
-  switch(game.phase){
-    case 'setup':game.started=true;game.day=1;game.phase='night_wolf';game.publicLog.push(entry(game,'对局正式开始，天黑请闭眼。'));break;
-    case 'night_wolf':{
-      const choices=game.actions.filter(a=>a.day===game.day&&a.phase==='night_wolf').map(a=>a.action.targetSeat!);const unique=[...new Set(choices)];
-      if(unique.length===1)game.currentNight.wolfTarget=unique[0];else if('wolfResolution' in options)game.currentNight.wolfTarget=options.wolfResolution??null;else throw new Error('狼人意见不一致，需要上帝裁定目标或选择空刀');
-      game.phase='night_seer';break;
-    }
-    case 'night_seer':game.phase='night_witch';break;
-    case 'night_witch':{
-      const deaths:number[]=[];if(game.currentNight.wolfTarget&&game.currentNight.savedSeat!==game.currentNight.wolfTarget)deaths.push(game.currentNight.wolfTarget);if(game.currentNight.poisonedSeat&&!deaths.includes(game.currentNight.poisonedSeat))deaths.push(game.currentNight.poisonedSeat);game.currentNight.deaths=deaths;
-      deaths.forEach(s=>eliminate(game,s,s===game.currentNight.poisonedSeat?'poison':'wolf'));game.phase='dawn';break;
-    }
-    case 'dawn':{
-      const deaths=game.currentNight.deaths;game.publicLog.push(entry(game,deaths.length?`昨夜死亡：${deaths.map(s=>`${s}号`).join('、')}。身份不公开。`:'昨夜平安夜。'));
-      const hunter=eligibleHunter(game);
-      if(game.config.nightDeathLastWords&&deaths.length)game.phase='last_words';else if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}else if(!setWinnerIfAny(game))game.phase='day_speech';break;
-    }
-    case 'last_words':{const hunter=eligibleHunter(game);if(hunter){game.pendingHunterId=hunter.id;game.phase='hunter_action';}else if(!setWinnerIfAny(game))game.phase='day_speech';break;}
-    case 'day_speech':game.phase='day_vote';break;
-    case 'day_vote':{
-      const {leaders,counts}=tallyVotes(game,'day_vote');game.publicLog.push(entry(game,`投票统计：${Object.entries(counts).map(([s,c])=>`${s}号 ${c}票`).join('，')||'全部弃票'}`));
-      if(leaders.length>1){game.runoffSeats=leaders;game.phase='runoff_speech';}else if(leaders.length===1){eliminate(game,leaders[0],'vote');game.publicLog.push(entry(game,`${leaders[0]}号被放逐。身份不公开。`));const h=eligibleHunter(game);if(h){game.pendingHunterId=h.id;game.phase='hunter_action';}else if(!setWinnerIfAny(game))startNextNight(game);}else startNextNight(game);break;
-    }
-    case 'runoff_speech':game.phase='runoff_vote';break;
-    case 'runoff_vote':{
-      const {leaders,counts}=tallyVotes(game,'runoff_vote');game.publicLog.push(entry(game,`PK 投票统计：${Object.entries(counts).map(([s,c])=>`${s}号 ${c}票`).join('，')||'全部弃票'}`));
-      if(leaders.length===1){eliminate(game,leaders[0],'vote');game.publicLog.push(entry(game,`${leaders[0]}号被放逐。身份不公开。`));const h=eligibleHunter(game);if(h){game.pendingHunterId=h.id;game.phase='hunter_action';}else if(!setWinnerIfAny(game))startNextNight(game);}else{game.publicLog.push(entry(game,'再次平票，本轮无人出局。'));startNextNight(game);}break;
-    }
-    case 'hunter_action':{
-      const a=[...game.actions].reverse().find(x=>x.day===game.day&&x.phase==='hunter_action'&&x.playerId===game.pendingHunterId);if(a?.action.kind==='shoot'){eliminate(game,a.action.targetSeat!,'shot');game.publicLog.push(entry(game,`猎人开枪带走了 ${a.action.targetSeat}号。`));}else game.publicLog.push(entry(game,'猎人选择不开枪。'));game.pendingHunterId=undefined;if(!setWinnerIfAny(game)){const hasDayVote=game.actions.some(x=>x.day===game.day&&(x.phase==='day_vote'||x.phase==='runoff_vote'));if(game.currentNight.deaths.length&&!hasDayVote)game.phase='day_speech';else startNextNight(game);}break;
-    }
-  }
+  phaseHandlers[game.phase](game,options);
   game.updatedAt=now();game.godLog.push(entry(game,`阶段推进至：${PHASE_NAMES[game.phase]}`));return game;
 }
 
