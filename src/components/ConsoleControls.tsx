@@ -1,0 +1,83 @@
+import type { GameView } from '../api';
+import type { Phase } from '../shared/types';
+
+const roundStages: Array<{ label: string; phases: Phase[] }> = [
+  { label: '确认', phases: ['setup'] },
+  { label: '夜幕', phases: ['night_wolf', 'night_seer', 'night_witch'] },
+  { label: '黎明', phases: ['dawn', 'last_words'] },
+  { label: '发言', phases: ['day_speech', 'runoff_speech'] },
+  { label: '投票', phases: ['day_vote', 'runoff_vote'] },
+  { label: '结算', phases: ['hunter_action', 'ended'] },
+];
+
+export function PhaseRail({ phase }: { phase: Phase }) {
+  const active = Math.max(
+    0,
+    roundStages.findIndex((stage) => stage.phases.includes(phase)),
+  );
+  return (
+    <ol className="phase-rail" aria-label="当前回合阶段进度">
+      {roundStages.map((stage, index) => (
+        <li
+          key={stage.label}
+          className={index === active ? 'active' : index < active ? 'complete' : ''}
+          aria-current={index === active ? 'step' : undefined}
+        >
+          <i>{index < active ? '✓' : index + 1}</i>
+          <span>{stage.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function ExportMenu({
+  game,
+  onDownload,
+}: {
+  game: GameView;
+  onDownload: (kind: 'public.md' | 'full.md' | 'save') => void;
+}) {
+  return (
+    <details className="export-menu">
+      <summary className="ghost">导出与备份</summary>
+      <div className="export-popover">
+        <button onClick={() => onDownload('public.md')}>
+          <b>公开战报</b>
+          <span>仅包含已公开信息</span>
+        </button>
+        <button onClick={() => onDownload('save')}>
+          <b>完整存档</b>
+          <span>用于本机备份与恢复</span>
+        </button>
+        {game.phase === 'ended' && (
+          <button onClick={() => onDownload('full.md')}>
+            <b>完整复盘</b>
+            <span>包含身份与私人行动</span>
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
+export function PrivacyCurtain({ onReveal }: { onReveal: () => void }) {
+  return (
+    <div
+      className="privacy-curtain"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="privacy-title"
+    >
+      <div className="privacy-mark" aria-hidden="true">
+        ◐
+      </div>
+      <p className="eyebrow">PRIVACY SHIELD</p>
+      <h1 id="privacy-title">上帝视角已遮挡</h1>
+      <p>身份、行动与日志仍安全保存在本机。</p>
+      <button className="primary large" onClick={onReveal} autoFocus>
+        返回控制台
+      </button>
+    </div>
+  );
+}
