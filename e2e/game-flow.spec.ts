@@ -36,4 +36,20 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
   await page.getByRole('button', { name: '撤销上一步' }).click();
   await expect(page.locator('article.action-panel')).toHaveCount(2);
   await expect(page.getByRole('button', { name: '撤销上一步' })).toHaveCount(0);
+
+  const backup = await (await page.request.get(`/api/games/${gameId}/export/save`)).text();
+  await page.getByRole('button', { name: '对局大厅' }).click();
+  await page.getByLabel('选择要导入的完整存档').setInputFiles({
+    name: 'game-save.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(backup),
+  });
+  await expect(page.locator('article.action-panel')).toHaveCount(2);
+  const importedId = await page.evaluate(() => localStorage.getItem('ai-werewolf-current-game'));
+  expect(importedId).not.toBe(gameId);
+  const imported = await (await page.request.get(`/api/games/${importedId}`)).json();
+  expect(imported.title).toContain('（导入）');
+  expect(imported.players.map((player: { id: string }) => player.id)).not.toEqual(
+    stored.players.map((player: { id: string }) => player.id),
+  );
 });

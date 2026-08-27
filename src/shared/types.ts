@@ -1,4 +1,5 @@
 export const ROLES = ['wolf', 'seer', 'witch', 'hunter', 'villager'] as const;
+export const GAME_SCHEMA_VERSION = 1;
 export type Role = (typeof ROLES)[number];
 export const ROLE_NAMES: Record<Role, string> = { wolf: '狼人', seer: '预言家', witch: '女巫', hunter: '猎人', villager: '村民' };
 
@@ -16,6 +17,6 @@ export interface ActionRecord { id:string; day:number; phase:Phase; playerId:str
 export interface LogEntry { id:string; timestamp:string; day:number; phase:Phase; message:string; }
 export interface WitchState { antidoteAvailable:boolean; poisonAvailable:boolean; }
 export interface NightState { wolfTarget?:number|null; poisonedSeat?:number; savedSeat?:number; deaths:number[]; }
-export interface GameState { id:string; title:string; createdAt:string; updatedAt:string; phase:Phase; day:number; started:boolean; players:Player[]; config:GameConfig; witch:WitchState; currentNight:NightState; actions:ActionRecord[]; publicLog:LogEntry[]; privateLogs:Record<string,LogEntry[]>; godLog:LogEntry[]; runoffSeats:number[]; pendingHunterId?:string; winner?:'good'|'wolves'; winReason?:string; }
+export interface GameState { schemaVersion:number; id:string; title:string; createdAt:string; updatedAt:string; phase:Phase; day:number; started:boolean; players:Player[]; config:GameConfig; witch:WitchState; currentNight:NightState; actions:ActionRecord[]; publicLog:LogEntry[]; privateLogs:Record<string,LogEntry[]>; godLog:LogEntry[]; runoffSeats:number[]; pendingHunterId?:string; winner?:'good'|'wolves'; winReason?:string; }
 export interface PlayerDraft { name:string; modelLabel:string; role?:Role; }
 export interface CreateGameInput { title?:string; players:PlayerDraft[]; assignment:'random'|'manual'; config?:Partial<GameConfig>; }

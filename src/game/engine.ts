@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { COMMON_RULES, ROLE_TEMPLATES } from '../prompts/templates.js';
-import { PHASE_NAMES, ROLE_NAMES, type ActionRecord, type CreateGameInput, type GameState, type LogEntry, type ParsedAction, type Phase, type Player, type Role } from '../shared/types.js';
+import { GAME_SCHEMA_VERSION, PHASE_NAMES, ROLE_NAMES, type ActionRecord, type CreateGameInput, type GameState, type LogEntry, type ParsedAction, type Phase, type Player, type Role } from '../shared/types.js';
 
 const DEFAULT_ROLES: Role[] = ['wolf','wolf','seer','witch','hunter','villager','villager'];
 const now = () => new Date().toISOString();
@@ -22,7 +22,7 @@ export function createGame(input:CreateGameInput):GameState {
   }
   const id=randomUUID();
   const players:Player[]=input.players.map((p,i)=>({id:randomUUID(),seat:i+1,name:p.name.trim()||`${i+1}号玩家`,modelLabel:p.modelLabel.trim()||'AI',role:roles[i],alive:true}));
-  const game:GameState={id,title:input.title?.trim()||'未命名对局',createdAt:now(),updatedAt:now(),phase:'setup',day:0,started:false,players,config:{nightDeathLastWords:true,firstNightSelfSave:true,revealOnDeath:false,...input.config},witch:{antidoteAvailable:true,poisonAvailable:true},currentNight:{deaths:[]},actions:[],publicLog:[],privateLogs:Object.fromEntries(players.map(p=>[p.id,[]])),godLog:[],runoffSeats:[]};
+  const game:GameState={schemaVersion:GAME_SCHEMA_VERSION,id,title:input.title?.trim()||'未命名对局',createdAt:now(),updatedAt:now(),phase:'setup',day:0,started:false,players,config:{nightDeathLastWords:true,firstNightSelfSave:true,revealOnDeath:false,...input.config},witch:{antidoteAvailable:true,poisonAvailable:true},currentNight:{deaths:[]},actions:[],publicLog:[],privateLogs:Object.fromEntries(players.map(p=>[p.id,[]])),godLog:[],runoffSeats:[]};
   game.godLog.push(entry(game,'对局已创建，等待身份确认。'));
   return game;
 }

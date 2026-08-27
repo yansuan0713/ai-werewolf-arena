@@ -1,14 +1,13 @@
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
+import { normalizeGameState } from '../src/game/schema.js';
 import type { GameState } from '../src/shared/types.js';
 
 interface SaveOptions { undo?: GameState; }
 
 function parseGame(raw:string,expectedId:string):GameState {
-  const value=JSON.parse(raw) as Partial<GameState>;
-  if(!value||value.id!==expectedId||!Array.isArray(value.players)||typeof value.phase!=='string') throw new Error('存档结构无效');
-  return value as GameState;
+  return normalizeGameState(JSON.parse(raw),expectedId);
 }
 
 export class GameStore {

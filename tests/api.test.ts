@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createApp, type GameView } from '../server/app';
 import { GameStore } from '../server/store';
 import type { CreateGameInput } from '../src/shared/types';
+import { gameAt } from './helpers';
 
 const dirs: string[] = [];
 afterEach(async () => Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true }))));
@@ -101,6 +102,36 @@ describe('GameView API', () => {
       expect((await send(`/api/games/${created.id}/advance`, { wolfResolution: -1 })).status).toBe(400);
       expect((await send('/api/parse', { raw: 42 })).status).toBe(400);
       expect((await store.get(created.id)).actions).toHaveLength(0);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    }
+  });
+
+  it('导出完整存档后以新 ID 安全复制导入，并提供公开 Markdown', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'werewolf-import-'));
+    dirs.push(dir);
+    const store = new GameStore(dir);
+    const source = await store.save(gameAt('night_wolf'));
+    source.privateLogs[source.players[0].id].push({ id: 'private', timestamp: new Date().toISOString(), day: 1, phase: 'night_wolf', message: '狼人私密信息' });
+    await store.save(source);
+    const server = createApp(store).listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const backupResponse = await fetch(`${base}/api/games/${source.id}/export/save`);
+      expect(backupResponse.ok).toBe(true);
+      const backup = await backupResponse.json();
+      expect(backup.schemaVersion).toBe(1);
+      const imported = await json<GameView>(`${base}/api/games/import`, { method: 'POST', body: JSON.stringify(backup) });
+      expect(imported.id).not.toBe(source.id);
+      expect(imported.players.map(player => player.id)).not.toEqual(source.players.map(player => player.id));
+      expect(imported.privateLogs[imported.players[0].id][0].message).toBe('狼人私密信息');
+      expect(await store.list()).toHaveLength(2);
+      const markdownResponse = await fetch(`${base}/api/games/${source.id}/export/public.md`);
+      expect(markdownResponse.headers.get('content-type')).toContain('text/markdown');
+      expect(await markdownResponse.text()).not.toContain('狼人私密信息');
+      expect((await fetch(`${base}/api/games/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...backup, schemaVersion: 999 }) })).status).toBe(400);
+      expect(await store.list()).toHaveLength(2);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
     }

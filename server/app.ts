@@ -11,7 +11,9 @@ import {
   submitAction,
 } from '../src/game/engine.js';
 import { parseReply } from '../src/game/parser.js';
+import { fullMarkdown, publicMarkdown } from '../src/game/reports.js';
 import type { GameState } from '../src/shared/types.js';
+import { cloneImportedGame } from './import-game.js';
 import { GameStore } from './store.js';
 import { validateActionBody, validateAdvanceBody, validateCreateGameInput, validateParseBody } from './validation.js';
 
@@ -32,7 +34,7 @@ const asyncRoute =
 
 export function createApp(store = new GameStore(), staticDir?: string) {
   const app = express();
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '5mb' }));
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.get(
     '/api/games',
@@ -45,6 +47,13 @@ export function createApp(store = new GameStore(), staticDir?: string) {
     '/api/games',
     asyncRoute(async (req, res) => {
       const game = await store.save(createGame(validateCreateGameInput(req.body)));
+      res.status(201).json(toGameView(game));
+    }),
+  );
+  app.post(
+    '/api/games/import',
+    asyncRoute(async (req, res) => {
+      const game = await store.save(cloneImportedGame(req.body));
       res.status(201).json(toGameView(game));
     }),
   );
@@ -125,6 +134,30 @@ export function createApp(store = new GameStore(), staticDir?: string) {
       const game = await store.get(param(req.params.id));
       res.setHeader('Content-Disposition', `attachment; filename="${game.id}-full.json"`);
       res.json(fullReport(game));
+    }),
+  );
+  app.get(
+    '/api/games/:id/export/save',
+    asyncRoute(async (req, res) => {
+      const game = await store.get(param(req.params.id));
+      res.setHeader('Content-Disposition', `attachment; filename="${game.id}-save.json"`);
+      res.json(game);
+    }),
+  );
+  app.get(
+    '/api/games/:id/export/public.md',
+    asyncRoute(async (req, res) => {
+      const game = await store.get(param(req.params.id));
+      res.type('text/markdown').setHeader('Content-Disposition', `attachment; filename="${game.id}-public.md"`);
+      res.send(publicMarkdown(game));
+    }),
+  );
+  app.get(
+    '/api/games/:id/export/full.md',
+    asyncRoute(async (req, res) => {
+      const game = await store.get(param(req.params.id));
+      res.type('text/markdown').setHeader('Content-Disposition', `attachment; filename="${game.id}-full.md"`);
+      res.send(fullMarkdown(game));
     }),
   );
 
