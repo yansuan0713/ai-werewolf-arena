@@ -7,6 +7,7 @@ import {
   PhaseRail,
   PrivacyCurtain,
 } from './components/ConsoleControls';
+import { GameLogs } from './components/GameLogs';
 import {
   PHASE_NAMES,
   ROLE_NAMES,
@@ -412,8 +413,6 @@ function GameConsole({
 }) {
   const [reveal, setReveal] = useState(false),
     [privacy, setPrivacy] = useState(false),
-    [tab, setTab] = useState<'public' | 'private' | 'god'>('public'),
-    [selectedPrivate, setSelectedPrivate] = useState(game.players[0]?.id),
     [wolfResolution, setWolfResolution] = useState('');
   const pending = game.pendingPlayerIds || [];
   const voteCounts = useMemo(() => {
@@ -652,60 +651,7 @@ function GameConsole({
               )}
             </section>
           )}
-          <section className="logs">
-            <div className="tabs">
-              <button className={tab === 'public' ? 'active' : ''} onClick={() => setTab('public')}>
-                公共
-              </button>
-              <button
-                className={tab === 'private' ? 'active' : ''}
-                onClick={() => setTab('private')}
-              >
-                私人
-              </button>
-              <button className={tab === 'god' ? 'active' : ''} onClick={() => setTab('god')}>
-                上帝
-              </button>
-            </div>
-            {tab === 'private' && (
-              <select
-                className="log-player"
-                value={selectedPrivate}
-                onChange={(e) => setSelectedPrivate(e.target.value)}
-              >
-                {game.players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.seat}号 {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div className="log-list">
-              {(tab === 'public'
-                ? game.publicLog
-                : tab === 'god'
-                  ? game.godLog
-                  : game.privateLogs[selectedPrivate] || []
-              )
-                .slice()
-                .reverse()
-                .map((l) => (
-                  <div key={l.id}>
-                    <time>
-                      第 {l.day} 天 · {PHASE_NAMES[l.phase]}
-                    </time>
-                    <p>{l.message}</p>
-                  </div>
-                ))}
-              {!(
-                tab === 'public'
-                  ? game.publicLog
-                  : tab === 'god'
-                    ? game.godLog
-                    : game.privateLogs[selectedPrivate] || []
-              ).length && <p className="muted">暂无记录</p>}
-            </div>
-          </section>
+          <GameLogs game={game} />
         </aside>
       </div>
     </div>
