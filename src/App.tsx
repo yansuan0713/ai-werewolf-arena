@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, type GameView } from './api';
+import { api, type AnyGameView, type CollarGameView, type GameView } from './api';
+import { CollarConsole } from './components/CollarConsole';
+import { CollarCreateForm } from './components/CollarCreateForm';
 import {
   ActionSteps,
   ConsoleNav,
@@ -9,6 +11,7 @@ import {
   PrivacyCurtain,
 } from './components/ConsoleControls';
 import { GameLogs } from './components/GameLogs';
+import { COLLAR_PHASE_NAMES, isCollarGame } from './shared/collar-types';
 import {
   PHASE_NAMES,
   ROLE_NAMES,
@@ -55,8 +58,8 @@ const allowedKinds = (phase: GameView['phase']): ActionKind[] => {
 };
 
 function App() {
-  const [games, setGames] = useState<GameView[]>([]),
-    [game, setGame] = useState<GameView | null>(null),
+  const [games, setGames] = useState<AnyGameView[]>([]),
+    [game, setGame] = useState<AnyGameView | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
   const loadList = async () => {
@@ -66,7 +69,7 @@ function App() {
       setError((e as Error).message);
     }
   };
-  const selectGame = (next: GameView | null) => {
+  const selectGame = (next: AnyGameView | null) => {
     setGame(next);
     if (next) localStorage.setItem('ai-werewolf-current-game', next.id);
     else localStorage.removeItem('ai-werewolf-current-game');
@@ -105,7 +108,7 @@ function App() {
       setError((e as Error).message);
     }
   };
-  const update = async (fn: () => Promise<GameView>) => {
+  const update = async (fn: () => Promise<AnyGameView>) => {
     setBusy(true);
     setError('');
     try {
@@ -125,7 +128,7 @@ function App() {
           <span className="moon">夜</span>
           <span>
             <b>月下议事厅</b>
-            <small>AI 狼人杀 · 本地主持台</small>
+            <small>多智能体游戏 · 本地主持台</small>
           </span>
         </button>
         {game && (
@@ -145,7 +148,15 @@ function App() {
       )}
       <main>
         {game ? (
-          <GameConsole game={game} busy={busy} update={update} />
+          isCollarGame(game) ? (
+            <CollarConsole
+              game={game as CollarGameView}
+              busy={busy}
+              update={(fn) => void update(fn)}
+            />
+          ) : (
+            <GameConsole game={game} busy={busy} update={(fn) => void update(fn)} />
+          )
         ) : (
           <Lobby
             games={games}
@@ -171,13 +182,14 @@ function Lobby({
   onCreated,
   setError,
 }: {
-  games: GameView[];
+  games: AnyGameView[];
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
-  onCreated: (g: GameView) => void;
+  onCreated: (g: AnyGameView) => void;
   setError: (s: string) => void;
 }) {
   const [creating, setCreating] = useState(false),
+    [creatingCollar, setCreatingCollar] = useState(false),
     [importing, setImporting] = useState(false);
   const importSave = async (file?: File) => {
     if (!file) return;
@@ -197,16 +209,22 @@ function Lobby({
         <div>
           <p className="eyebrow">今夜开局</p>
           <h1>
-            七席已备，
+            一张桌子，
             <br />
-            <em>等你落座开局。</em>
+            <em>不止一种生死博弈。</em>
           </h1>
           <p>
-            免费、本地、半自动的多 AI 狼人杀主持工具。你掌握规则与确认权，模型只负责思考和发言。
+            免费、本地、半自动的多智能体游戏主持台。选择经典狼人杀，或进入情报、谎言与剪线交织的爆炸项圈。
           </p>
           <div className="actions">
             <button className="primary large" onClick={() => setCreating(true)}>
               ＋ 新建 7 人对局
+            </button>
+            <button
+              className="secondary large collar-start"
+              onClick={() => setCreatingCollar(true)}
+            >
+              ◇ 新建爆炸项圈
             </button>
             <label className="ghost">
               {importing ? '导入中…' : '导入完整存档'}
@@ -227,12 +245,19 @@ function Lobby({
           </div>
         </div>
         <div className="sigil">
-          <span>7</span>
-          <small>经典七人局</small>
+          <span>2</span>
+          <small>完整游戏模式</small>
         </div>
       </section>
       {creating && (
         <CreateForm onCancel={() => setCreating(false)} onCreated={onCreated} setError={setError} />
+      )}
+      {creatingCollar && (
+        <CollarCreateForm
+          onCancel={() => setCreatingCollar(false)}
+          onCreated={onCreated}
+          setError={setError}
+        />
       )}
       <section className="saved">
         <div className="section-title">
@@ -247,16 +272,19 @@ function Lobby({
         ) : (
           <div className="game-grid">
             {games.map((g) => (
-              <article className="save-card" key={g.id}>
+              <article className={`save-card ${isCollarGame(g) ? 'collar-save' : ''}`} key={g.id}>
                 <div>
                   <span className={`phase-dot ${g.phase === 'ended' ? 'ended' : ''}`} />
-                  <small>{PHASE_NAMES[g.phase]}</small>
+                  <small>
+                    {isCollarGame(g) ? COLLAR_PHASE_NAMES[g.phase] : PHASE_NAMES[g.phase]}
+                  </small>
                 </div>
                 <h3>{g.title}</h3>
                 <p>
-                  第 {g.day || 0} 天 · {g.players.filter((p) => p.alive).length}/{g.players.length}{' '}
-                  人存活
+                  {isCollarGame(g) ? `第 ${g.turn || 0} 轮` : `第 ${g.day || 0} 天`} ·{' '}
+                  {g.players.filter((p) => p.alive).length}/{g.players.length} 人存活
                 </p>
+                <span className="mode-stamp">{isCollarGame(g) ? '爆炸项圈' : '经典狼人杀'}</span>
                 <time>{new Date(g.updatedAt).toLocaleString()}</time>
                 <div className="actions">
                   <button className="primary" onClick={() => onOpen(g.id)}>
@@ -437,7 +465,7 @@ function GameConsole({
   };
   const undo = () => {
     if (!confirm('撤销最近一次已确认行动或阶段推进？当前状态会回到该操作之前。')) return;
-    update(() => api.undo(game.id));
+    update(() => api.undo(game.id) as Promise<GameView>);
   };
   const download = (kind: 'public.md' | 'full.md' | 'save') => {
     if (kind === 'save' && !confirm('完整存档包含全部身份、私人行动和 AI 回复。确认保存到本机？'))

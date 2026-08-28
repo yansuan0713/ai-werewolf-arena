@@ -74,3 +74,94 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
     stored.players.map((player: { id: string }) => player.id),
   );
 });
+
+test('爆炸项圈可以建局、确认私密线索并提交开场发言', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '新建爆炸项圈' }).click();
+  await expect(page.getByRole('heading', { name: '新建爆炸项圈' })).toBeVisible();
+  await page.getByLabel('爆炸项圈玩家人数').selectOption('4');
+  await page.getByRole('button', { name: '创建并检查项圈' }).click();
+  await expect(page.getByText('逐一确认私人线索')).toBeVisible();
+  await expect(page.getByText('爆炸项圈 · 爆炸项圈 · 生存局')).toBeVisible();
+
+  const gameId = await page.evaluate(() => localStorage.getItem('ai-werewolf-current-game'));
+  const stored = await (await page.request.get(`/api/games/${gameId}`)).json();
+  expect(stored.mode).toBe('exploding_collar');
+  expect(stored.players).toHaveLength(4);
+  await expect(page.locator('article.briefing-card')).toHaveCount(4);
+  const firstBriefing = page.locator('article.briefing-card').first();
+  await firstBriefing.getByRole('button', { name: '生成私人简报' }).click();
+  await firstBriefing.getByText('检查简报内容').click();
+  await expect(firstBriefing.getByLabel('1号私人简报')).toHaveValue(/私人扫描/);
+
+  await page.getByRole('button', { name: '私人线路 已隐藏' }).click();
+  await expect(page.getByText(/致命：/).first()).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '推进至下一阶段' }).click();
+  await expect(page.getByRole('heading', { name: '开场陈述' })).toBeVisible();
+  await expect(page.locator('article.collar-action-panel')).toHaveCount(4);
+
+  const firstPlayer = page.locator('article.collar-action-panel').first();
+  await firstPlayer.getByRole('button', { name: '生成并复制提示词' }).click();
+  await expect(firstPlayer.getByLabel('项圈玩家提示词')).toHaveValue(/你的项圈已确认安全线/);
+  await firstPlayer.getByLabel('粘贴 AI 回复').fill('【公开发言】我会谨慎交换安全线索。');
+  await firstPlayer.getByRole('button', { name: '解析回复' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await firstPlayer.getByRole('button', { name: '确认并提交行动' }).click();
+  await expect(page.locator('article.collar-action-panel')).toHaveCount(3);
+  await page.reload();
+  await expect(page.locator('article.collar-action-panel')).toHaveCount(3);
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '撤销上一步' }).click();
+  await expect(page.locator('article.collar-action-panel')).toHaveCount(4);
+
+  const opening = await (await page.request.get(`/api/games/${gameId}`)).json();
+  for (const player of opening.players) {
+    const response = await page.request.post(`/api/collar-games/${gameId}/actions`, {
+      data: {
+        playerId: player.id,
+        raw: `【公开发言】${player.seat}号开场`,
+        action: {
+          kind: 'collar_speech',
+          text: `${player.seat}号开场`,
+          matched: `【公开发言】${player.seat}号开场`,
+        },
+      },
+    });
+    expect(response.ok()).toBe(true);
+  }
+  expect((await page.request.post(`/api/collar-games/${gameId}/advance`, { data: {} })).ok()).toBe(
+    true,
+  );
+  await page.reload();
+  await expect(page.getByRole('heading', { name: '操作者发言' })).toBeVisible();
+
+  let activePanel = page.locator('article.collar-action-panel').first();
+  await activePanel.getByLabel('粘贴 AI 回复').fill('【公开发言】我选择测试二号的线路。');
+  await activePanel.getByRole('button', { name: '解析回复' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await activePanel.getByRole('button', { name: '确认并提交行动' }).click();
+  await page.getByRole('button', { name: '推进至下一阶段' }).click();
+  await expect(page.getByRole('heading', { name: '选择剪线' })).toBeVisible();
+
+  activePanel = page.locator('article.collar-action-panel').first();
+  await activePanel.getByLabel('粘贴 AI 回复').fill('【剪线：2号-红】');
+  await activePanel.getByRole('button', { name: '解析回复' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await activePanel.getByRole('button', { name: '确认并提交行动' }).click();
+  await page.getByRole('button', { name: '推进至下一阶段' }).click();
+  await expect(page.getByRole('heading', { name: '目标应对' })).toBeVisible();
+
+  activePanel = page.locator('article.collar-action-panel').first();
+  await activePanel.getByLabel('粘贴 AI 回复').fill('【使用保险】');
+  await activePanel.getByRole('button', { name: '解析回复' }).click();
+  page.once('dialog', (dialog) => dialog.accept());
+  await activePanel.getByRole('button', { name: '确认并提交行动' }).click();
+  await page.getByRole('button', { name: '推进至下一阶段' }).click();
+  await expect(page.getByRole('heading', { name: '公开结算' })).toBeVisible();
+  await expect(page.getByText(/启动保险/)).toBeVisible();
+  await page.getByRole('button', { name: '推进至下一阶段' }).click();
+  await expect(page.getByRole('heading', { name: '操作者发言' })).toBeVisible();
+  await expect(page.getByText('第 2 轮 · 当前阶段')).toBeVisible();
+});

@@ -2,66 +2,124 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { normalizeGameState } from '../src/game/schema.js';
-import type { GameState } from '../src/shared/types.js';
+import { normalizeCollarGameState } from '../src/game/collar-schema.js';
+import { isCollarGame } from '../src/shared/collar-types.js';
+import type { AnyGameState } from '../src/shared/game-types.js';
 
-interface SaveOptions { undo?: GameState; }
+interface SaveOptions {
+  undo?: AnyGameState;
+}
 
-function parseGame(raw:string,expectedId:string):GameState {
-  return normalizeGameState(JSON.parse(raw),expectedId);
+function parseGame(raw: string, expectedId: string): AnyGameState {
+  const value: unknown = JSON.parse(raw);
+  return isCollarGame(value)
+    ? normalizeCollarGameState(value, expectedId)
+    : normalizeGameState(value, expectedId);
 }
 
 export class GameStore {
-  constructor(private readonly dir=path.resolve(process.env.DATA_DIR||path.join(process.cwd(),'data','games'))){}
-  private assertId(id:string){if(!/^[a-zA-Z0-9-]+$/.test(id))throw new Error('非法对局 ID');}
-  private file(id:string){this.assertId(id);return path.join(this.dir,`${id}.json`);}
-  private backupFile(id:string){this.assertId(id);return path.join(this.dir,`${id}.backup.json`);}
-  private undoFile(id:string){this.assertId(id);return path.join(this.dir,`${id}.undo.json`);}
-
-  private async atomicWrite(file:string,contents:string){
-    await mkdir(this.dir,{recursive:true});
-    const temporary=path.join(this.dir,`.${path.basename(file)}.${randomUUID()}.tmp`);
-    try{await writeFile(temporary,contents,'utf8');await rename(temporary,file);}
-    catch(error){await rm(temporary,{force:true});throw error;}
+  constructor(
+    private readonly dir = path.resolve(
+      process.env.DATA_DIR || path.join(process.cwd(), 'data', 'games'),
+    ),
+  ) {}
+  private assertId(id: string) {
+    if (!/^[a-zA-Z0-9-]+$/.test(id)) throw new Error('非法对局 ID');
+  }
+  private file(id: string) {
+    this.assertId(id);
+    return path.join(this.dir, `${id}.json`);
+  }
+  private backupFile(id: string) {
+    this.assertId(id);
+    return path.join(this.dir, `${id}.backup.json`);
+  }
+  private undoFile(id: string) {
+    this.assertId(id);
+    return path.join(this.dir, `${id}.undo.json`);
   }
 
-  async save(game:GameState,options:SaveOptions={}){
-    await mkdir(this.dir,{recursive:true});
-    game.updatedAt=new Date().toISOString();
-    let previous:string|undefined;
-    try{const raw=await readFile(this.file(game.id),'utf8');parseGame(raw,game.id);previous=raw;}catch{/* 新对局或损坏主文件不覆盖已有备份。 */}
-    if(previous)await this.atomicWrite(this.backupFile(game.id),previous);
-    if(options.undo)await this.atomicWrite(this.undoFile(game.id),JSON.stringify(options.undo,null,2));
-    await this.atomicWrite(this.file(game.id),JSON.stringify(game,null,2));
-    return game;
-  }
-
-  async get(id:string){
-    try{return parseGame(await readFile(this.file(id),'utf8'),id);}
-    catch(primaryError){
-      try{
-        const recovered=parseGame(await readFile(this.backupFile(id),'utf8'),id);
-        await this.atomicWrite(this.file(id),JSON.stringify(recovered,null,2));
-        return recovered;
-      }catch{throw new Error(`无法读取对局存档：${primaryError instanceof Error?primaryError.message:'未知错误'}`);}
+  private async atomicWrite(file: string, contents: string) {
+    await mkdir(this.dir, { recursive: true });
+    const temporary = path.join(this.dir, `.${path.basename(file)}.${randomUUID()}.tmp`);
+    try {
+      await writeFile(temporary, contents, 'utf8');
+      await rename(temporary, file);
+    } catch (error) {
+      await rm(temporary, { force: true });
+      throw error;
     }
   }
 
-  async list(){
-    await mkdir(this.dir,{recursive:true});
-    const files=(await readdir(this.dir)).filter(f=>/^[a-zA-Z0-9-]+\.json$/.test(f));
-    const settled=await Promise.allSettled(files.map(f=>this.get(f.slice(0,-5))));
-    return settled.flatMap(result=>result.status==='fulfilled'?[result.value]:[]).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  async save(game: AnyGameState, options: SaveOptions = {}) {
+    await mkdir(this.dir, { recursive: true });
+    game.updatedAt = new Date().toISOString();
+    let previous: string | undefined;
+    try {
+      const raw = await readFile(this.file(game.id), 'utf8');
+      parseGame(raw, game.id);
+      previous = raw;
+    } catch {
+      /* 新对局或损坏主文件不覆盖已有备份。 */
+    }
+    if (previous) await this.atomicWrite(this.backupFile(game.id), previous);
+    if (options.undo)
+      await this.atomicWrite(this.undoFile(game.id), JSON.stringify(options.undo, null, 2));
+    await this.atomicWrite(this.file(game.id), JSON.stringify(game, null, 2));
+    return game;
   }
 
-  async canUndo(id:string){try{parseGame(await readFile(this.undoFile(id),'utf8'),id);return true;}catch{return false;}}
+  async get(id: string) {
+    try {
+      return parseGame(await readFile(this.file(id), 'utf8'), id);
+    } catch (primaryError) {
+      try {
+        const recovered = parseGame(await readFile(this.backupFile(id), 'utf8'), id);
+        await this.atomicWrite(this.file(id), JSON.stringify(recovered, null, 2));
+        return recovered;
+      } catch {
+        throw new Error(
+          `无法读取对局存档：${primaryError instanceof Error ? primaryError.message : '未知错误'}`,
+        );
+      }
+    }
+  }
 
-  async undo(id:string){
-    let restored:GameState;
-    try{restored=parseGame(await readFile(this.undoFile(id),'utf8'),id);}catch{throw new Error('没有可撤销的行动或阶段推进');}
+  async list() {
+    await mkdir(this.dir, { recursive: true });
+    const files = (await readdir(this.dir)).filter((f) => /^[a-zA-Z0-9-]+\.json$/.test(f));
+    const settled = await Promise.allSettled(files.map((f) => this.get(f.slice(0, -5))));
+    return settled
+      .flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async canUndo(id: string) {
+    try {
+      parseGame(await readFile(this.undoFile(id), 'utf8'), id);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async undo(id: string) {
+    let restored: AnyGameState;
+    try {
+      restored = parseGame(await readFile(this.undoFile(id), 'utf8'), id);
+    } catch {
+      throw new Error('没有可撤销的行动或阶段推进');
+    }
     await this.save(restored);
-    await rm(this.undoFile(id),{force:true});
+    await rm(this.undoFile(id), { force: true });
     return restored;
   }
 
-  async delete(id:string){await Promise.all([this.file(id),this.backupFile(id),this.undoFile(id)].map(file=>rm(file,{force:true})));}
+  async delete(id: string) {
+    await Promise.all(
+      [this.file(id), this.backupFile(id), this.undoFile(id)].map((file) =>
+        rm(file, { force: true }),
+      ),
+    );
+  }
 }

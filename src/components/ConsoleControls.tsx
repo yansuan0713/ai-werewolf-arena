@@ -117,7 +117,7 @@ export function ExportMenu({
   game,
   onDownload,
 }: {
-  game: GameView;
+  game: { phase: string };
   onDownload: (kind: 'public.md' | 'full.md' | 'save') => void;
 }) {
   return (
