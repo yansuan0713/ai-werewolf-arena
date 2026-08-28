@@ -39,7 +39,7 @@ export function GameLogs({ game }: { game: GameView }) {
   };
 
   return (
-    <section className="logs">
+    <section className="logs" id="game-logs">
       <div className="tabs" role="tablist" aria-label="日志类型">
         {(['public', 'private', 'god'] as const).map((item) => (
           <button

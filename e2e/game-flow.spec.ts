@@ -22,6 +22,8 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
   await expect(page.locator('.phase-rail [aria-current="step"]')).toContainText('夜幕');
   await expect(page.getByText('行动进度').locator('..')).toContainText('0/2');
   await expect(page.locator('.pending-queue button')).toHaveCount(2);
+  await page.getByRole('button', { name: '前往行动' }).click();
+  await expect(page.locator('#action-desk')).toBeVisible();
   await expect(page.getByRole('tab', { name: /公共/ })).toHaveAttribute('aria-selected', 'true');
   await page.getByLabel('搜索当前日志').fill('绝对不存在的日志内容');
   await expect(page.getByText('没有匹配的日志')).toBeVisible();

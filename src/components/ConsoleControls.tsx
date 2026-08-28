@@ -31,6 +31,36 @@ export function PhaseRail({ phase }: { phase: Phase }) {
   );
 }
 
+export function ConsoleNav({ pendingCount }: { pendingCount: number }) {
+  const destinations = [
+    { id: 'round-overview', label: '本轮' },
+    { id: 'player-seats', label: '席位' },
+    { id: 'action-desk', label: '行动' },
+    { id: 'game-logs', label: '记录' },
+  ];
+  const jump = (id: string) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  return (
+    <nav className="console-nav" aria-label="主持台快捷导航">
+      <div className={pendingCount ? 'nav-status waiting' : 'nav-status ready'}>
+        <i aria-hidden="true" />
+        {pendingCount ? `尚有 ${pendingCount} 位玩家待行动` : '本阶段信息已收齐'}
+      </div>
+      <div className="nav-links">
+        {destinations.map((destination) => (
+          <button
+            key={destination.id}
+            onClick={() => jump(destination.id)}
+            aria-label={`前往${destination.label}`}
+          >
+            {destination.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 export function PendingQueue({
   players,
   onSelect,
@@ -122,9 +152,9 @@ export function PrivacyCurtain({ onReveal }: { onReveal: () => void }) {
       aria-labelledby="privacy-title"
     >
       <div className="privacy-mark" aria-hidden="true">
-        ◐
+        隐
       </div>
-      <p className="eyebrow">PRIVACY SHIELD</p>
+      <p className="eyebrow">暂离席位</p>
       <h1 id="privacy-title">上帝视角已遮挡</h1>
       <p>身份、行动与日志仍安全保存在本机。</p>
       <button className="primary large" onClick={onReveal} autoFocus>

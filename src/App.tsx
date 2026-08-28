@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, type GameView } from './api';
 import {
   ActionSteps,
+  ConsoleNav,
   ExportMenu,
   PendingQueue,
   PhaseRail,
@@ -121,10 +122,10 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => selectGame(null)}>
-          <span className="moon">◐</span>
+          <span className="moon">夜</span>
           <span>
-            <b>AI WEREWOLF</b>
-            <small>GOD CONSOLE · LOCAL ONLY</small>
+            <b>月下议事厅</b>
+            <small>AI 狼人杀 · 本地主持台</small>
           </span>
         </button>
         {game && (
@@ -158,7 +159,7 @@ function App() {
           />
         )}
       </main>
-      <footer>AI Werewolf Arena · 数据只保存在本机 · 非任何模型厂商官方产品</footer>
+      <footer>月下议事厅 · 数据只保存在本机 · 非任何模型厂商官方产品</footer>
     </div>
   );
 }
@@ -194,11 +195,11 @@ function Lobby({
     <div className="lobby">
       <section className="hero">
         <div>
-          <p className="eyebrow">THE TABLE IS WAITING</p>
+          <p className="eyebrow">今夜开局</p>
           <h1>
-            让不同的 AI，
+            七席已备，
             <br />
-            <em>在同一张桌上博弈。</em>
+            <em>等你落座开局。</em>
           </h1>
           <p>
             免费、本地、半自动的多 AI 狼人杀主持工具。你掌握规则与确认权，模型只负责思考和发言。
@@ -227,7 +228,7 @@ function Lobby({
         </div>
         <div className="sigil">
           <span>7</span>
-          <small>PLAYERS</small>
+          <small>经典七人局</small>
         </div>
       </section>
       {creating && (
@@ -236,7 +237,7 @@ function Lobby({
       <section className="saved">
         <div className="section-title">
           <div>
-            <p className="eyebrow">LOCAL ARCHIVES</p>
+            <p className="eyebrow">续局</p>
             <h2>本地存档</h2>
           </div>
           <span>{games.length} 局</span>
@@ -313,7 +314,7 @@ function CreateForm({
       <section className="modal">
         <div className="modal-head">
           <div>
-            <p className="eyebrow">NEW GAME</p>
+            <p className="eyebrow">开一局</p>
             <h2>新建对局</h2>
           </div>
           <button className="icon-btn" onClick={onCancel}>
@@ -465,7 +466,10 @@ function GameConsole({
   return (
     <div className="console">
       {privacy && <PrivacyCurtain onReveal={() => setPrivacy(false)} />}
-      <section className={`phase-hero ${game.phase.startsWith('night') ? 'night' : 'day'}`}>
+      <section
+        id="round-overview"
+        className={`phase-hero ${game.phase.startsWith('night') ? 'night' : 'day'}`}
+      >
         <div className="phase-copy">
           <p className="eyebrow">{game.title}</p>
           <div className="phase-heading">
@@ -504,6 +508,7 @@ function GameConsole({
         </div>
         <PhaseRail phase={game.phase} />
       </section>
+      <ConsoleNav pendingCount={pending.length} />
       {game.winner && (
         <div className={`winner ${game.winner}`}>
           <b>{game.winner === 'good' ? '好人阵营胜利' : '狼人阵营胜利'}</b>
@@ -518,7 +523,7 @@ function GameConsole({
           >
             <i /> 上帝视角身份 {reveal ? '已开启' : '已关闭'}
           </button>
-          <span className="autosave">● 自动保存</span>
+          <span className="autosave">已自动存档</span>
         </div>
         <div>
           <button className="ghost privacy-button" onClick={shield}>
@@ -540,10 +545,10 @@ function GameConsole({
           </span>
         </div>
       )}
-      <section className="players">
+      <section className="players" id="player-seats">
         <div className="section-title">
           <div>
-            <p className="eyebrow">SEATS</p>
+            <p className="eyebrow">在座诸位</p>
             <h2>玩家席位</h2>
           </div>
           <span>{game.players.filter((p) => p.alive).length} 人存活</span>
@@ -572,10 +577,10 @@ function GameConsole({
         </div>
       </section>
       <div className="main-grid">
-        <section className="action-zone">
+        <section className="action-zone" id="action-desk">
           <div className="section-title">
             <div>
-              <p className="eyebrow">ACTION DESK</p>
+              <p className="eyebrow">主持案台</p>
               <h2>行动工作台</h2>
             </div>
             <span>
@@ -633,7 +638,7 @@ function GameConsole({
         <aside className="side-panel">
           {['day_vote', 'runoff_vote'].includes(game.phase) && (
             <section className="vote-box">
-              <p className="eyebrow">VOTE BOARD</p>
+              <p className="eyebrow">票型</p>
               <h3>实时票型</h3>
               {Object.keys(voteCounts).length ? (
                 Object.entries(voteCounts)
