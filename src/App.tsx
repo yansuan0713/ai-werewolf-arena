@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, type GameView } from './api';
-import { ExportMenu, PhaseRail, PrivacyCurtain } from './components/ConsoleControls';
+import {
+  ActionSteps,
+  ExportMenu,
+  PendingQueue,
+  PhaseRail,
+  PrivacyCurtain,
+} from './components/ConsoleControls';
 import {
   PHASE_NAMES,
   ROLE_NAMES,
@@ -452,6 +458,11 @@ function GameConsole({
     setReveal(false);
     setPrivacy(true);
   };
+  const focusAction = (playerId: string) => {
+    document
+      .getElementById(`action-${playerId}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   return (
     <div className="console">
       {privacy && <PrivacyCurtain onReveal={() => setPrivacy(false)} />}
@@ -465,13 +476,15 @@ function GameConsole({
               <h1>{PHASE_NAMES[game.phase]}</h1>
             </div>
           </div>
-          <p className="phase-hint">
-            {pending.length
-              ? `等待 ${actionable.map((player) => `${player.seat}号`).join('、')} 完成行动`
-              : game.phase === 'ended'
+          {pending.length ? (
+            <PendingQueue players={actionable} onSelect={focusAction} />
+          ) : (
+            <p className="phase-hint">
+              {game.phase === 'ended'
                 ? '对局已经完成，可以导出完整复盘'
                 : '所需信息已收齐，由上帝确认后推进'}
-          </p>
+            </p>
+          )}
         </div>
         <div className="round-summary">
           <div className="metric">
@@ -724,7 +737,12 @@ function ActionPanel({
     try {
       const r = await api.prompt(game.id, player.id);
       setPrompt(r.prompt);
-      setMessage('提示词已生成');
+      try {
+        await navigator.clipboard.writeText(r.prompt);
+        setMessage('提示词已生成并复制到剪贴板');
+      } catch {
+        setMessage('提示词已生成；自动复制失败，可使用右侧复制按钮');
+      }
     } catch (e) {
       setMessage((e as Error).message);
     } finally {
@@ -786,7 +804,7 @@ function ActionPanel({
   };
   const needsTarget = ['kill', 'inspect', 'antidote', 'poison', 'vote', 'shoot'].includes(kind);
   return (
-    <article className="action-panel">
+    <article className="action-panel" id={`action-${player.id}`}>
       <div className="action-head">
         <div className="mini-seat">{player.seat}</div>
         <div>
@@ -797,9 +815,14 @@ function ActionPanel({
         </div>
         <span>待确认</span>
       </div>
+      <ActionSteps
+        hasPrompt={Boolean(prompt)}
+        hasReply={Boolean(raw.trim())}
+        hasCandidate={manual || parsed.length > 0}
+      />
       <div className="prompt-row">
         <button className="secondary" disabled={working} onClick={gen}>
-          生成提示词
+          生成并复制提示词
         </button>
         <button className="ghost" disabled={!prompt} onClick={copy}>
           一键复制

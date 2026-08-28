@@ -21,6 +21,7 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
   await expect(page.locator('article.action-panel')).toHaveCount(2);
   await expect(page.locator('.phase-rail [aria-current="step"]')).toContainText('夜幕');
   await expect(page.getByText('行动进度').locator('..')).toContainText('0/2');
+  await expect(page.locator('.pending-queue button')).toHaveCount(2);
 
   await page.getByRole('button', { name: '隐私遮罩' }).click();
   await expect(page.getByRole('dialog')).toContainText('上帝视角已遮挡');
@@ -28,7 +29,12 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
   await expect(page.getByRole('heading', { name: '狼人行动' })).toBeVisible();
 
   const firstWolf = page.locator('article.action-panel').first();
+  await expect(firstWolf.locator('.action-steps [aria-current="step"]')).toContainText('提示词');
+  await firstWolf.getByRole('button', { name: '生成并复制提示词' }).click();
+  await expect(firstWolf.getByLabel('生成的玩家提示词')).not.toHaveValue('');
+  await expect(firstWolf.locator('.action-steps [aria-current="step"]')).toContainText('AI 回复');
   await firstWolf.getByLabel('粘贴 AI 回复').fill('【击杀：3号】');
+  await expect(firstWolf.locator('.action-steps [aria-current="step"]')).toContainText('确认行动');
   await firstWolf.getByRole('button', { name: '解析回复' }).click();
   page.once('dialog', (dialog) => dialog.accept());
   await firstWolf.getByRole('button', { name: '确认并提交行动' }).click();

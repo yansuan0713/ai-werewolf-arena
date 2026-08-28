@@ -576,6 +576,45 @@ footer {
   color: #aeb3bc;
   font-size: 13px;
 }
+.pending-queue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 0 64px;
+}
+.pending-queue > span {
+  margin-right: 2px;
+  color: #858c97;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.pending-queue button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 4px 10px 4px 5px;
+  border-color: rgba(196, 154, 84, 0.32);
+  border-radius: 999px;
+  color: #d8c99f;
+  background: rgba(43, 35, 23, 0.74);
+  font-size: 11px;
+}
+.pending-queue button:hover {
+  border-color: var(--gold);
+  background: rgba(60, 47, 27, 0.92);
+}
+.pending-queue i {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  color: #15110b;
+  background: var(--gold-bright);
+  font: 700 10px/1 monospace;
+}
 .round-summary {
   align-self: center;
   display: grid;
@@ -891,7 +930,55 @@ footer {
   gap: 13px;
 }
 .action-panel {
+  scroll-margin-top: 86px;
   padding: 18px;
+}
+.action-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin: 15px 0;
+  padding: 0;
+  list-style: none;
+}
+.action-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: #646c77;
+  background: rgba(8, 10, 14, 0.42);
+  font-size: 10px;
+}
+.action-steps i {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #39404b;
+  border-radius: 50%;
+  font: 700 9px/1 monospace;
+}
+.action-steps li.active {
+  border-color: rgba(196, 154, 84, 0.4);
+  color: #e0d3b3;
+  background: rgba(55, 43, 24, 0.45);
+}
+.action-steps li.active i {
+  border-color: var(--gold);
+  color: #17120c;
+  background: var(--gold-bright);
+}
+.action-steps li.complete {
+  color: #8fa99a;
+}
+.action-steps li.complete i {
+  border-color: rgba(96, 146, 116, 0.58);
+  color: #a5c7b3;
+  background: rgba(52, 90, 67, 0.32);
 }
 .action-head {
   display: flex;
@@ -1215,6 +1302,9 @@ footer {
   .phase-hint {
     margin-left: 0;
   }
+  .pending-queue {
+    margin-left: 0;
+  }
   .phase-rail span {
     font-size: 8px;
   }
@@ -1261,5 +1351,9 @@ footer {
   }
   .phase-rail {
     grid-template-columns: repeat(4, 1fr);
+  }
+  .action-steps li {
+    justify-content: center;
+    padding-inline: 5px;
   }
 }

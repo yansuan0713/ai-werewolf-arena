@@ -31,6 +31,58 @@ export function PhaseRail({ phase }: { phase: Phase }) {
   );
 }
 
+export function PendingQueue({
+  players,
+  onSelect,
+}: {
+  players: GameView['players'];
+  onSelect: (playerId: string) => void;
+}) {
+  if (!players.length) return null;
+  return (
+    <div className="pending-queue" aria-label="待行动玩家快捷定位">
+      <span>等待行动</span>
+      {players.map((player) => (
+        <button key={player.id} onClick={() => onSelect(player.id)}>
+          <i>{player.seat}</i>
+          {player.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function ActionSteps({
+  hasPrompt,
+  hasReply,
+  hasCandidate,
+}: {
+  hasPrompt: boolean;
+  hasReply: boolean;
+  hasCandidate: boolean;
+}) {
+  const current = hasCandidate || hasReply ? 2 : hasPrompt ? 1 : 0;
+  const steps = [
+    { label: '提示词', complete: hasPrompt, active: current === 0 },
+    { label: 'AI 回复', complete: hasReply, active: current === 1 },
+    { label: '确认行动', complete: false, active: current === 2 },
+  ];
+  return (
+    <ol className="action-steps" aria-label="行动提交流程">
+      {steps.map((step, index) => (
+        <li
+          key={step.label}
+          className={step.complete ? 'complete' : step.active ? 'active' : ''}
+          aria-current={step.active ? 'step' : undefined}
+        >
+          <i>{step.complete ? '✓' : index + 1}</i>
+          {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function ExportMenu({
   game,
   onDownload,
