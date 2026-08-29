@@ -12,6 +12,7 @@ import {
 } from './components/ConsoleControls';
 import { GameLogs } from './components/GameLogs';
 import { AnimatedNumber } from './components/motion/AnimatedNumber';
+import { NightArc } from './components/visuals/NightArc';
 import { COLLAR_PHASE_NAMES, isCollarGame } from './shared/collar-types';
 import {
   PHASE_NAMES,
@@ -207,6 +208,7 @@ function Lobby({
   return (
     <div className="lobby">
       <section className="hero">
+        <NightArc />
         <div>
           <p className="eyebrow">今夜开局</p>
           <h1>
