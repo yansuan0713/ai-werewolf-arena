@@ -11,6 +11,7 @@ import {
   PrivacyCurtain,
 } from './components/ConsoleControls';
 import { GameLogs } from './components/GameLogs';
+import { AnimatedNumber } from './components/motion/AnimatedNumber';
 import { COLLAR_PHASE_NAMES, isCollarGame } from './shared/collar-types';
 import {
   PHASE_NAMES,
@@ -216,36 +217,66 @@ function Lobby({
           <p>
             免费、本地、半自动的多智能体游戏主持台。选择经典狼人杀，或进入情报、谎言与剪线交织的爆炸项圈。
           </p>
-          <div className="actions">
-            <button className="primary large" onClick={() => setCreating(true)}>
-              ＋ 新建 7 人对局
-            </button>
-            <button
-              className="secondary large collar-start"
-              onClick={() => setCreatingCollar(true)}
-            >
-              ◇ 新建爆炸项圈
-            </button>
-            <label className="ghost">
-              {importing ? '导入中…' : '导入完整存档'}
-              <input
-                hidden
-                type="file"
-                accept="application/json,.json"
-                disabled={importing}
-                aria-label="选择要导入的完整存档"
-                onChange={(e) => {
-                  const input = e.currentTarget;
-                  void importSave(input.files?.[0]).finally(() => {
-                    input.value = '';
-                  });
-                }}
-              />
-            </label>
+          <div className="mode-launcher">
+            <article className="mode-choice werewolf-choice">
+              <div className="mode-choice-head">
+                <span>月</span>
+                <div>
+                  <small>阵营推理</small>
+                  <h2>经典狼人杀</h2>
+                </div>
+              </div>
+              <p>身份、夜间技能、发言与两轮票型完整托管。</p>
+              <div className="mode-facts">
+                <span>7 席</span>
+                <span>12 阶段</span>
+                <span>经典规则</span>
+              </div>
+              <button className="primary large" onClick={() => setCreating(true)}>
+                新建 7 人对局 <b>→</b>
+              </button>
+            </article>
+            <article className="mode-choice collar-choice">
+              <div className="mode-choice-head">
+                <span>⌁</span>
+                <div>
+                  <small>情报生存</small>
+                  <h2>爆炸项圈</h2>
+                </div>
+              </div>
+              <p>交换安全线索，在谎言与保险之间决定下一剪。</p>
+              <div className="mode-facts">
+                <span>4–8 席</span>
+                <span>私人扫描</span>
+                <span>轮换剪线</span>
+              </div>
+              <button
+                className="secondary large collar-start"
+                onClick={() => setCreatingCollar(true)}
+              >
+                新建爆炸项圈 <b>→</b>
+              </button>
+            </article>
           </div>
+          <label className="import-save">
+            <span>{importing ? '导入中…' : '已有完整存档？从本机导入'}</span>
+            <input
+              hidden
+              type="file"
+              accept="application/json,.json"
+              disabled={importing}
+              aria-label="选择要导入的完整存档"
+              onChange={(e) => {
+                const input = e.currentTarget;
+                void importSave(input.files?.[0]).finally(() => {
+                  input.value = '';
+                });
+              }}
+            />
+          </label>
         </div>
         <div className="sigil">
-          <span>2</span>
+          <AnimatedNumber value={2} duration={0.8} />
           <small>完整游戏模式</small>
         </div>
       </section>
@@ -520,7 +551,13 @@ function GameConsole({
         <div className="round-summary">
           <div className="metric">
             <small>存活</small>
-            <strong>{game.players.filter((player) => player.alive).length}</strong>
+            <strong>
+              <AnimatedNumber
+                value={game.players.filter((player) => player.alive).length}
+                duration={0.45}
+                startOnView={false}
+              />
+            </strong>
             <span>/ {game.players.length} 人</span>
           </div>
           <div className="metric">

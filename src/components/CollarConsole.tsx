@@ -9,6 +9,7 @@ import {
 } from '../shared/collar-types';
 import { ActionSteps, ConsoleNav, ExportMenu, PrivacyCurtain } from './ConsoleControls';
 import { CollarLogs } from './CollarLogs';
+import { AnimatedNumber } from './motion/AnimatedNumber';
 
 const actionNames: Record<CollarActionKind, string> = {
   collar_speech: '公开发言',
@@ -118,7 +119,13 @@ export function CollarConsole({
         <div className="round-summary collar-summary">
           <div className="metric">
             <small>幸存</small>
-            <strong>{game.players.filter((player) => player.alive).length}</strong>
+            <strong>
+              <AnimatedNumber
+                value={game.players.filter((player) => player.alive).length}
+                duration={0.45}
+                startOnView={false}
+              />
+            </strong>
             <span>/ {game.players.length} 人</span>
           </div>
           <div className="metric">
