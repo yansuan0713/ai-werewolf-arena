@@ -76,6 +76,7 @@ export function cloneImportedCollarGame(input: unknown): CollarGameState {
         renewCollarLogs(source.privateLogs[player.id]),
       ]),
     ),
+    briefedPlayerIds: source.briefedPlayerIds.map((playerId) => idMap.get(playerId)!),
     currentOperatorId: source.currentOperatorId ? idMap.get(source.currentOperatorId) : undefined,
     pendingCut: source.pendingCut
       ? {

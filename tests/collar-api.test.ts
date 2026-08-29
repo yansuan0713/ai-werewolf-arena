@@ -40,6 +40,15 @@ describe('爆炸项圈 API', () => {
       expect(created.mode).toBe('exploding_collar');
       expect(created.pendingPlayerIds).toHaveLength(4);
 
+      for (const [index, player] of created.players.entries()) {
+        const confirmed = await json<CollarGameView>(
+          `${base}/api/collar-games/${created.id}/briefings/${player.id}/confirm`,
+          { method: 'POST', body: '{}' },
+        );
+        expect(confirmed.briefedPlayerIds).toHaveLength(index + 1);
+        expect(confirmed.pendingPlayerIds).toHaveLength(created.players.length - index - 1);
+      }
+
       const opening = await json<CollarGameView>(`${base}/api/collar-games/${created.id}/advance`, {
         method: 'POST',
         body: '{}',

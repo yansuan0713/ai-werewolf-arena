@@ -73,6 +73,13 @@ export function normalizeCollarGameState(input: unknown, expectedId?: string): C
     ids.add(player.id);
     seats.add(Number(player.seat));
   }
+  if (value.briefedPlayerIds === undefined) value.briefedPlayerIds = [];
+  requireValue(
+    Array.isArray(value.briefedPlayerIds) &&
+      value.briefedPlayerIds.every((id) => typeof id === 'string' && ids.has(id)) &&
+      new Set(value.briefedPlayerIds).size === value.briefedPlayerIds.length,
+    'briefedPlayerIds 非法',
+  );
   for (const player of value.players) {
     requireValue(
       ids.has(String(player.intel.targetPlayerId)) &&

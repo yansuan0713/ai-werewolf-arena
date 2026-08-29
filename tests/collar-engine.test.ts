@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceCollarGame,
+  confirmCollarBriefing,
   createCollarGame,
   generateCollarPrompt,
   submitCollarAction,
@@ -23,6 +24,10 @@ const speakAll = (game: CollarGameState) => {
   for (const player of game.players.filter((item) => item.alive))
     submitCollarAction(game, player.id, action('collar_speech', { text: `${player.seat}号发言` }));
 };
+const briefAll = (game: CollarGameState) => {
+  for (const player of game.players.filter((item) => !game.briefedPlayerIds.includes(item.id)))
+    confirmCollarBriefing(game, player.id);
+};
 
 describe('爆炸项圈规则引擎', () => {
   it('完整走完开场、轮流剪线并产生最后幸存者', () => {
@@ -31,6 +36,7 @@ describe('爆炸项圈规则引擎', () => {
       player.lethalWire = 'red';
       player.safeWireHint = 'blue';
     });
+    briefAll(game);
     advanceCollarGame(game);
     expect(game.phase).toBe('opening_speech');
     speakAll(game);
@@ -55,6 +61,17 @@ describe('爆炸项圈规则引擎', () => {
     expect(game.players.filter((player) => player.alive)).toHaveLength(1);
     expect(game.winnerPlayerId).toBe(game.players.find((player) => player.alive)?.id);
     expect(game.publicLog.filter((log) => log.message.includes('项圈爆炸'))).toHaveLength(3);
+  });
+
+  it('未逐席确认私人简报时禁止开局，并持久记录确认进度', () => {
+    const game = create();
+    confirmCollarBriefing(game, game.players[0].id);
+    expect(game.briefedPlayerIds).toEqual([game.players[0].id]);
+    expect(() => advanceCollarGame(game)).toThrow('仍有 3 名玩家未行动');
+    briefAll(game);
+    expect(game.briefedPlayerIds).toHaveLength(4);
+    advanceCollarGame(game);
+    expect(game.phase).toBe('opening_speech');
   });
 
   it('安全线被剪断后公开记录且不能重复剪', () => {

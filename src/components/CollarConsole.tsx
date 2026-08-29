@@ -70,15 +70,17 @@ export function CollarConsole({
   const operator = game.players.find((player) => player.id === game.currentOperatorId);
   const cutTarget = game.players.find((player) => player.id === game.pendingCut?.targetId);
   const winner = game.players.find((player) => player.id === game.winnerPlayerId);
+  const briefed = game.briefedPlayerIds.length;
   const submitted = new Set(
     game.actions
       .filter((record) => record.turn === game.turn && record.phase === game.phase)
       .map((record) => record.playerId),
   ).size;
-  const expected = game.phase === 'setup' ? 0 : submitted + pending.length;
-  const progress = expected ? Math.round((submitted / expected) * 100) : 100;
+  const expected = game.phase === 'setup' ? game.players.length : submitted + pending.length;
+  const completed = game.phase === 'setup' ? briefed : submitted;
+  const progress = expected ? Math.round((completed / expected) * 100) : 100;
   const advance = () => {
-    if (game.phase === 'setup' && !confirm('所有玩家的私人安全线与扫描线索都已分别确认？')) return;
+    if (game.phase === 'setup' && !confirm('全部私人简报均已逐席确认。现在正式解锁项圈？')) return;
     update(() => api.advanceCollar(game.id));
   };
   const undo = () => {
@@ -130,7 +132,7 @@ export function CollarConsole({
         </div>
         <CollarPhaseRail phase={game.phase} />
       </section>
-      <ConsoleNav pendingCount={game.phase === 'setup' ? 0 : pending.length} />
+      <ConsoleNav pendingCount={pending.length} />
       {winner && (
         <div className="winner collar-winner">
           <b>
@@ -169,10 +171,10 @@ export function CollarConsole({
       </div>
       {game.phase === 'setup' && (
         <div className="setup-notice collar-setup">
-          <b>逐一确认私人线索</b>
-          <span>
-            每位玩家只能收到自己的安全线、保险状态和一条私人扫描。主持人确认完毕后再正式开始。
-          </span>
+          <b>
+            逐一确认私人线索 · {briefed}/{game.players.length}
+          </b>
+          <span>生成后请核对接收方，再点“确认已交接”。全部席位确认前无法正式开始。</span>
         </div>
       )}
       <section className="players" id="player-seats">
@@ -258,7 +260,13 @@ export function CollarConsole({
           {game.phase === 'setup' ? (
             <div className="briefing-grid">
               {game.players.map((player) => (
-                <CollarBriefingCard key={player.id} game={game} player={player} />
+                <CollarBriefingCard
+                  key={player.id}
+                  game={game}
+                  player={player}
+                  confirmed={game.briefedPlayerIds.includes(player.id)}
+                  update={update}
+                />
               ))}
             </div>
           ) : actionable.length ? (
@@ -290,7 +298,7 @@ export function CollarConsole({
           {game.phase !== 'ended' && (
             <button
               className="advance collar-advance"
-              disabled={busy || (game.phase !== 'setup' && pending.length > 0)}
+              disabled={busy || pending.length > 0}
               onClick={advance}
             >
               <span>{busy ? '处理中…' : '推进至下一阶段'}</span>
@@ -319,9 +327,13 @@ export function CollarConsole({
 function CollarBriefingCard({
   game,
   player,
+  confirmed,
+  update,
 }: {
   game: CollarGameView;
   player: CollarGameView['players'][number];
+  confirmed: boolean;
+  update: (fn: () => Promise<CollarGameView>) => void;
 }) {
   const [prompt, setPrompt] = useState('');
   const [message, setMessage] = useState('');
@@ -343,16 +355,31 @@ function CollarBriefingCard({
       setWorking(false);
     }
   };
+  const confirmDelivery = () => {
+    if (!confirm(`确认私人简报只交接给 ${player.seat}号 ${player.name}？`)) return;
+    update(() => api.confirmCollarBriefing(game.id, player.id));
+  };
   return (
-    <article className="briefing-card">
+    <article className={`briefing-card ${confirmed ? 'confirmed' : ''}`}>
       <div>
         <span>{player.seat}</span>
         <b>{player.name}</b>
-        <small>{player.modelLabel}</small>
+        <small>{confirmed ? '✓ 已完成隔离交接' : player.modelLabel}</small>
       </div>
-      <button className="secondary" disabled={working} onClick={generate}>
-        {prompt ? '重新生成并复制' : '生成私人简报'}
-      </button>
+      {!confirmed && (
+        <div className="briefing-actions">
+          <button className="secondary" disabled={working} onClick={generate}>
+            {prompt ? '重新生成并复制' : '生成私人简报'}
+          </button>
+          <button
+            className="confirm-briefing"
+            disabled={!prompt || working}
+            onClick={confirmDelivery}
+          >
+            确认已交接
+          </button>
+        </div>
+      )}
       {prompt && (
         <details>
           <summary>检查简报内容</summary>
@@ -387,6 +414,7 @@ function CollarActionPanel({
   const [text, setText] = useState('');
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
+  const [canLooseRetry, setCanLooseRetry] = useState(false);
   const generate = async () => {
     setWorking(true);
     try {
@@ -412,18 +440,21 @@ function CollarActionPanel({
       setMessage('复制失败，请手动选择文本');
     }
   };
-  const parse = async () => {
+  const parse = async (loose = false) => {
     setWorking(true);
     try {
-      const response = await api.parseCollar(raw);
+      const response = await api.parseCollar(raw, loose);
       setParsed(response.actions);
       setSelected(0);
+      setCanLooseRetry(!loose && !response.actions.length);
       setMessage(
         response.actions.length
-          ? `识别到 ${response.actions.length} 个候选行动`
-          : '未识别到规定格式，请手动选择',
+          ? `${loose ? '宽松模式' : '严格模式'}识别到 ${response.actions.length} 个候选行动`
+          : loose
+            ? '宽松模式仍未识别，请手动选择'
+            : '严格模式未识别，可宽松重试或手动选择',
       );
-      if (!response.actions.length) setManual(true);
+      if (loose && !response.actions.length) setManual(true);
     } catch (error) {
       setMessage((error as Error).message);
     } finally {
@@ -477,14 +508,22 @@ function CollarActionPanel({
         粘贴 AI 回复
         <textarea
           value={raw}
-          onChange={(event) => setRaw(event.target.value)}
+          onChange={(event) => {
+            setRaw(event.target.value);
+            setCanLooseRetry(false);
+          }}
           placeholder="把对应 AI 网页的回复粘贴到这里…"
         />
       </label>
       <div className="parse-row">
-        <button className="secondary" disabled={!raw || working} onClick={parse}>
+        <button className="secondary" disabled={!raw || working} onClick={() => parse(false)}>
           解析回复
         </button>
+        {canLooseRetry && (
+          <button className="secondary" disabled={working} onClick={() => parse(true)}>
+            宽松重试
+          </button>
+        )}
         <button className="link-btn" onClick={() => setManual((current) => !current)}>
           {manual ? '使用解析结果' : '无法解析？手动选择'}
         </button>

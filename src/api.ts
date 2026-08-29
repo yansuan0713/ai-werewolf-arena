@@ -41,15 +41,20 @@ export const api = {
     request<{ prompt: string }>(`/api/collar-games/${id}/prompt/${playerId}`, {
       method: 'POST',
     }),
+  confirmCollarBriefing: (id: string, playerId: string) =>
+    request<CollarGameView>(`/api/collar-games/${id}/briefings/${playerId}/confirm`, {
+      method: 'POST',
+      body: '{}',
+    }),
   parse: (raw: string, loose = false) =>
     request<{ actions: ParsedAction[] }>('/api/parse', {
       method: 'POST',
       body: JSON.stringify({ raw, loose }),
     }),
-  parseCollar: (raw: string) =>
+  parseCollar: (raw: string, loose = false) =>
     request<{ actions: CollarParsedAction[] }>('/api/collar-parse', {
       method: 'POST',
-      body: JSON.stringify({ raw }),
+      body: JSON.stringify({ raw, loose }),
     }),
   submit: (id: string, playerId: string, action: ParsedAction, raw: string) =>
     request<GameView>(`/api/games/${id}/actions`, {

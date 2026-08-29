@@ -93,6 +93,17 @@ test('爆炸项圈可以建局、确认私密线索并提交开场发言', async
   await firstBriefing.getByRole('button', { name: '生成私人简报' }).click();
   await firstBriefing.getByText('检查简报内容').click();
   await expect(firstBriefing.getByLabel('1号私人简报')).toHaveValue(/私人扫描/);
+  page.once('dialog', (dialog) => dialog.accept());
+  await firstBriefing.getByRole('button', { name: '确认已交接' }).click();
+  await expect(firstBriefing).toHaveClass(/confirmed/);
+
+  for (let index = 1; index < 4; index += 1) {
+    const briefing = page.locator('article.briefing-card').nth(index);
+    await briefing.getByRole('button', { name: '生成私人简报' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await briefing.getByRole('button', { name: '确认已交接' }).click();
+  }
+  await expect(page.getByText('逐一确认私人线索 · 4/4')).toBeVisible();
 
   await page.getByRole('button', { name: '私人线路 已隐藏' }).click();
   await expect(page.getByText(/致命：/).first()).toBeVisible();

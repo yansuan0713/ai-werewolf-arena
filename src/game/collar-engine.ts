@@ -67,6 +67,7 @@ export function createCollarGame(input: CreateCollarGameInput): CollarGameState 
     turn: 0,
     started: false,
     players,
+    briefedPlayerIds: [],
     config: { insuranceEnabled: true, ...input.config },
     actions: [],
     publicLog: [],
@@ -94,6 +95,10 @@ export function collarAllowedPlayerIds(game: CollarGameState): string[] {
 }
 
 export function collarPendingPlayerIds(game: CollarGameState): string[] {
+  if (game.phase === 'setup')
+    return game.players
+      .filter((player) => !game.briefedPlayerIds.includes(player.id))
+      .map((player) => player.id);
   return collarAllowedPlayerIds(game).filter(
     (id) =>
       !game.actions.some(
@@ -101,6 +106,18 @@ export function collarPendingPlayerIds(game: CollarGameState): string[] {
           record.turn === game.turn && record.phase === game.phase && record.playerId === id,
       ),
   );
+}
+
+export function confirmCollarBriefing(game: CollarGameState, playerId: string): CollarGameState {
+  if (game.phase !== 'setup') throw new Error('私人简报只能在入场确认阶段交接');
+  const player = game.players.find((item) => item.id === playerId);
+  if (!player) throw new Error('玩家不存在');
+  if (game.briefedPlayerIds.includes(playerId)) throw new Error('该玩家的私人简报已经确认');
+  game.briefedPlayerIds.push(playerId);
+  game.privateLogs[playerId].push(logEntry(game, '主持人已确认私人简报完成隔离交接。'));
+  game.godLog.push(logEntry(game, `${player.seat}号私人简报已确认交接。`));
+  game.updatedAt = now();
+  return game;
 }
 
 function allowedFormat(game: CollarGameState, player: CollarPlayer): string {
@@ -293,8 +310,7 @@ function setWinnerIfAny(game: CollarGameState) {
 export function advanceCollarGame(game: CollarGameState): CollarGameState {
   if (game.phase === 'ended') throw new Error('对局已结束');
   const pending = collarPendingPlayerIds(game);
-  if (pending.length && game.phase !== 'setup')
-    throw new Error(`仍有 ${pending.length} 名玩家未行动`);
+  if (pending.length) throw new Error(`仍有 ${pending.length} 名玩家未行动`);
   switch (game.phase) {
     case 'setup':
       game.started = true;

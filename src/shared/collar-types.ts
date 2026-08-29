@@ -103,6 +103,7 @@ export interface CollarGameState {
   turn: number;
   started: boolean;
   players: CollarPlayer[];
+  briefedPlayerIds: string[];
   config: CollarGameConfig;
   currentOperatorId?: string;
   pendingCut?: PendingCut;

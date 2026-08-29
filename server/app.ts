@@ -18,6 +18,7 @@ import {
   collarPendingPlayerIds,
   collarPublicReport,
   createCollarGame,
+  confirmCollarBriefing,
   generateCollarPrompt,
   submitCollarAction,
 } from '../src/game/collar-engine.js';
@@ -159,6 +160,15 @@ export function createApp(store = new GameStore(), staticDir?: string) {
     }),
   );
   app.post(
+    '/api/collar-games/:id/briefings/:playerId/confirm',
+    asyncRoute(async (req, res) => {
+      const game = asCollar(await store.get(param(req.params.id)));
+      const next = confirmCollarBriefing(structuredClone(game), param(req.params.playerId));
+      const saved = asCollar(await store.save(next, { undo: game }));
+      res.json(toCollarGameView(saved, true));
+    }),
+  );
+  app.post(
     '/api/parse',
     asyncRoute(async (req, res) => {
       const { raw, loose } = validateParseBody(req.body);
@@ -168,8 +178,8 @@ export function createApp(store = new GameStore(), staticDir?: string) {
   app.post(
     '/api/collar-parse',
     asyncRoute(async (req, res) => {
-      const { raw } = validateParseBody(req.body);
-      res.json({ actions: parseCollarReply(raw) });
+      const { raw, loose } = validateParseBody(req.body);
+      res.json({ actions: parseCollarReply(raw, { loose }) });
     }),
   );
   app.post(
