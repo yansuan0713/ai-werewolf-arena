@@ -193,6 +193,8 @@ function Lobby({
   const [creating, setCreating] = useState(false),
     [creatingCollar, setCreatingCollar] = useState(false),
     [importing, setImporting] = useState(false);
+  const activeGames = games.filter((entry) => entry.phase !== 'ended');
+  const resumeGame = activeGames[0];
   const importSave = async (file?: File) => {
     if (!file) return;
     setImporting(true);
@@ -219,6 +221,22 @@ function Lobby({
           <p>
             免费、本地、半自动的多智能体游戏主持台。选择经典狼人杀，或进入情报、谎言与剪线交织的爆炸项圈。
           </p>
+          {resumeGame && (
+            <button className="resume-game" onClick={() => onOpen(resumeGame.id)}>
+              <span className="resume-mark" aria-hidden="true">
+                ↗
+              </span>
+              <span>
+                <small>上次停在这里</small>
+                <b>{resumeGame.title}</b>
+              </span>
+              <em>
+                {isCollarGame(resumeGame)
+                  ? `第 ${resumeGame.turn || 0} 轮 · ${COLLAR_PHASE_NAMES[resumeGame.phase]}`
+                  : `第 ${resumeGame.day || 0} 天 · ${PHASE_NAMES[resumeGame.phase]}`}
+              </em>
+            </button>
+          )}
           <div className="mode-launcher">
             <article className="mode-choice werewolf-choice">
               <div className="mode-choice-head">
@@ -276,6 +294,11 @@ function Lobby({
               }}
             />
           </label>
+          <div className="lobby-assurances" aria-label="主持方式说明">
+            <span>本机保存</span>
+            <span>逐项确认</span>
+            <span>随时续局</span>
+          </div>
         </div>
         <div className="sigil">
           <AnimatedNumber value={2} duration={0.8} />
@@ -298,7 +321,9 @@ function Lobby({
             <p className="eyebrow">续局</p>
             <h2>本地存档</h2>
           </div>
-          <span>{games.length} 局</span>
+          <span>
+            {games.length} 局 · {activeGames.length} 局进行中
+          </span>
         </div>
         {!games.length ? (
           <div className="empty">还没有存档。新建一局，座位已按经典 7 人配置准备好。</div>
@@ -318,10 +343,13 @@ function Lobby({
                   {g.players.filter((p) => p.alive).length}/{g.players.length} 人存活
                 </p>
                 <span className="mode-stamp">{isCollarGame(g) ? '爆炸项圈' : '经典狼人杀'}</span>
+                <span className={`save-status ${g.phase === 'ended' ? 'finished' : ''}`}>
+                  {g.phase === 'ended' ? '已结算' : '待继续'}
+                </span>
                 <time>{new Date(g.updatedAt).toLocaleString()}</time>
                 <div className="actions">
                   <button className="primary" onClick={() => onOpen(g.id)}>
-                    继续对局
+                    {g.phase === 'ended' ? '查看复盘' : '继续对局'}
                   </button>
                   <button className="danger-text" onClick={() => onDelete(g.id)}>
                     删除
@@ -378,7 +406,7 @@ function CreateForm({
             <p className="eyebrow">开一局</p>
             <h2>新建对局</h2>
           </div>
-          <button className="icon-btn" onClick={onCancel}>
+          <button className="icon-btn" onClick={onCancel} aria-label="关闭建局窗口">
             ×
           </button>
         </div>
