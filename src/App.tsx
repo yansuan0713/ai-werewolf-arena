@@ -44,6 +44,20 @@ const actionNames: Record<ActionKind, string> = {
   shoot: '开枪',
   no_shoot: '不开枪',
 };
+const phaseGuidance: Record<GameView['phase'], string> = {
+  setup: '核对座位和身份分配；确认开始前，任何玩家都不会收到身份信息。',
+  night_wolf: '分别收集狼人意图。两名狼人都确认后，系统才会按一致意见或上帝裁定结算。',
+  night_seer: '请预言家选择一名其他存活玩家查验，结果只会进入该预言家的私人记录。',
+  night_witch: '女巫根据当夜可见信息决定是否用药；同一晚只能选择一种药或不开药。',
+  dawn: '由上帝确认夜间结算，公开信息与私人信息仍保持分开。',
+  last_words: '依次收集有资格的夜间遗言，完成后进入白天公共讨论。',
+  day_speech: '收集所有存活玩家的公开发言；发言只是游戏内容，不会改变主持规则。',
+  day_vote: '收集存活玩家投票；首轮平票会自动转入 PK 流程。',
+  runoff_speech: '只收集 PK 候选人的补充发言，再进行第二轮投票。',
+  runoff_vote: '收集第二轮投票；再次平票则本日无人出局。',
+  hunter_action: '猎人拥有开枪资格时，确认目标或不开枪；系统会在结算后判断胜负。',
+  ended: '对局已结束。可以导出公开战报、完整复盘或本机备份。',
+};
 const allowedKinds = (phase: GameView['phase']): ActionKind[] => {
   const map: Partial<Record<GameView['phase'], ActionKind[]>> = {
     night_wolf: ['kill'],
@@ -568,6 +582,10 @@ function GameConsole({
               <h1>{PHASE_NAMES[game.phase]}</h1>
             </div>
           </div>
+          <p className="phase-brief">
+            <span>此刻要做</span>
+            {phaseGuidance[game.phase]}
+          </p>
           {pending.length ? (
             <PendingQueue players={actionable} onSelect={focusAction} />
           ) : (

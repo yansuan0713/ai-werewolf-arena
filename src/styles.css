@@ -894,6 +894,33 @@ footer {
   font: 500 clamp(30px, 4vw, 46px) var(--serif);
   letter-spacing: 0.03em;
 }
+.phase-brief {
+  max-width: 680px;
+  margin: 13px 0 0 64px;
+  color: #c4b7a5;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.phase-brief span {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 6px;
+  border: 1px solid rgba(189, 143, 80, 0.4);
+  border-radius: 999px;
+  color: var(--gold-bright);
+  background: rgba(89, 63, 31, 0.18);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  vertical-align: 1px;
+}
+.collar-brief {
+  color: #c5ada6;
+}
+.collar-brief span {
+  border-color: rgba(198, 113, 98, 0.42);
+  color: #e6b2a7;
+  background: rgba(110, 48, 40, 0.18);
+}
 .phase-hint {
   margin: 15px 0 0 64px;
   color: #aeb3bc;
@@ -982,6 +1009,14 @@ footer {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #806238, var(--gold-bright));
+}
+.progress-caption {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-align: right;
 }
 .phase-rail {
   grid-column: 1 / -1;

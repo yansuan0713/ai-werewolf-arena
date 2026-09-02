@@ -17,6 +17,15 @@ const actionNames: Record<CollarActionKind, string> = {
   use_insurance: '使用保险',
   accept_cut: '接受剪线',
 };
+const phaseGuidance: Record<CollarGameView['phase'], string> = {
+  setup: '逐席生成并确认私人线索。全部完成前，系统不会解锁第一轮。',
+  opening_speech: '每名存活玩家完成一段公开开场陈述，私人线索不会自动公开。',
+  turn_speech: '当前操作者先公开发言，为本轮剪线制造信息与判断。',
+  cut: '当前操作者选择另一名存活玩家及一根尚未剪断的线路。',
+  defense: '目标决定使用一次保险取消剪线，或接受本次剪线。',
+  resolution: '确认本轮公开结算后，系统会轮换到下一名操作者。',
+  ended: '对局已经结束，可以导出完整复盘查看所有线路与私人情报。',
+};
 
 const phaseKinds = (phase: CollarGameView['phase']): CollarActionKind[] => {
   if (phase === 'opening_speech' || phase === 'turn_speech') return ['collar_speech'];
@@ -106,6 +115,10 @@ export function CollarConsole({
               <h1>{COLLAR_PHASE_NAMES[game.phase]}</h1>
             </div>
           </div>
+          <p className="phase-brief collar-brief">
+            <span>此刻要做</span>
+            {phaseGuidance[game.phase]}
+          </p>
           <p className="phase-hint collar-hint">
             {pending.length && game.phase !== 'setup'
               ? `等待 ${actionable.map((player) => `${player.seat}号`).join('、')} 完成行动`
@@ -136,6 +149,13 @@ export function CollarConsole({
           <div className="progress-track" aria-label={`本阶段行动完成 ${progress}%`}>
             <i style={{ width: `${progress}%` }} />
           </div>
+          <small className="progress-caption">
+            {game.phase === 'setup'
+              ? `私人简报 ${briefed}/${game.players.length}`
+              : expected
+                ? `行动 ${completed}/${expected}`
+                : '等待主持人确认'}
+          </small>
         </div>
         <CollarPhaseRail phase={game.phase} />
       </section>

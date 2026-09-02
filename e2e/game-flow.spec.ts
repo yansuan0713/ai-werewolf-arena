@@ -18,6 +18,7 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: /推进至下一阶段/ }).click();
   await expect(page.getByRole('heading', { name: '狼人行动' })).toBeVisible();
+  await expect(page.locator('.phase-brief')).toContainText('分别收集狼人意图');
   await expect(page.locator('article.action-panel')).toHaveCount(2);
   await expect(page.locator('.phase-rail [aria-current="step"]')).toContainText('夜幕');
   await expect(page.getByText('行动进度').locator('..')).toContainText('0/2');
@@ -110,6 +111,7 @@ test('爆炸项圈可以建局、确认私密线索并提交开场发言', async
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '推进至下一阶段' }).click();
   await expect(page.getByRole('heading', { name: '开场陈述' })).toBeVisible();
+  await expect(page.locator('.phase-brief')).toContainText('每名存活玩家完成一段公开开场陈述');
   await expect(page.locator('article.collar-action-panel')).toHaveCount(4);
 
   const firstPlayer = page.locator('article.collar-action-panel').first();
