@@ -61,6 +61,11 @@ test('两名狼人依次提交、刷新恢复并可撤销', async ({ page }) => 
 
   const backup = await (await page.request.get(`/api/games/${gameId}/export/save`)).text();
   await page.getByRole('button', { name: '对局大厅' }).click();
+  await expect(page.getByText('待继续', { exact: true })).toBeVisible();
+  await page.getByLabel('搜索本地存档').fill('不存在的对局');
+  await expect(page.getByText('没有符合条件的存档')).toBeVisible();
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  await expect(page.getByText('没有符合条件的存档')).toHaveCount(0);
   await page.getByLabel('选择要导入的完整存档').setInputFiles({
     name: 'game-save.json',
     mimeType: 'application/json',

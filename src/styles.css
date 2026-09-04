@@ -555,6 +555,88 @@ footer {
   color: var(--muted);
   font-size: 11px;
 }
+.save-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -4px 0 18px;
+}
+.save-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: rgba(17, 13, 11, 0.58);
+}
+.save-filter button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 31px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #9c8e81;
+  background: transparent;
+  font-size: 12px;
+}
+.save-filter button:hover {
+  color: #d7c9b4;
+  background: rgba(65, 46, 32, 0.34);
+}
+.save-filter button.active {
+  border-color: #6f5339;
+  color: var(--gold-bright);
+  background: #2b2017;
+}
+.save-filter button span {
+  min-width: 16px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  color: #96826c;
+  background: rgba(9, 7, 6, 0.55);
+  font-size: 10px;
+  text-align: center;
+}
+.save-filter button.active span {
+  color: #e0c185;
+  background: rgba(116, 79, 38, 0.38);
+}
+.save-search {
+  width: min(100%, 300px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: #887a6e;
+  background: rgba(20, 15, 13, 0.72);
+}
+.save-search:focus-within {
+  border-color: #8a6945;
+  box-shadow: 0 0 0 3px rgba(185, 146, 84, 0.1);
+}
+.save-search span {
+  font-size: 12px;
+}
+.save-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: 13px;
+}
+.save-search input::placeholder {
+  color: #665b52;
+}
 .game-grid,
 .player-grid {
   display: grid;
@@ -663,6 +745,23 @@ footer {
   color: var(--muted);
   background: #120f0d;
   text-align: center;
+}
+.save-empty {
+  display: grid;
+  place-items: center;
+  gap: 9px;
+}
+.save-empty b {
+  color: #d1c1ad;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+}
+.save-empty span {
+  font-size: 13px;
+}
+.save-empty button {
+  margin-top: 5px;
 }
 
 /* Modal */
@@ -2042,6 +2141,20 @@ footer {
   }
   .mode-choice {
     min-height: 218px;
+  }
+  .save-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .save-filter {
+    width: 100%;
+  }
+  .save-filter button {
+    flex: 1;
+    justify-content: center;
+  }
+  .save-search {
+    width: 100%;
   }
   .phase-hero {
     padding: 22px 18px 18px;

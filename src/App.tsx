@@ -206,9 +206,30 @@ function Lobby({
 }) {
   const [creating, setCreating] = useState(false),
     [creatingCollar, setCreatingCollar] = useState(false),
-    [importing, setImporting] = useState(false);
+    [importing, setImporting] = useState(false),
+    [saveFilter, setSaveFilter] = useState<'all' | 'active' | 'finished'>('all'),
+    [saveQuery, setSaveQuery] = useState('');
   const activeGames = games.filter((entry) => entry.phase !== 'ended');
   const resumeGame = activeGames[0];
+  const filteredGames = useMemo(() => {
+    const query = saveQuery.trim().toLocaleLowerCase();
+    return games.filter((entry) => {
+      const matchesState =
+        saveFilter === 'all' ||
+        (saveFilter === 'active' && entry.phase !== 'ended') ||
+        (saveFilter === 'finished' && entry.phase === 'ended');
+      if (!matchesState) return false;
+      if (!query) return true;
+      const searchable = [
+        entry.title,
+        isCollarGame(entry) ? '爆炸项圈' : '经典狼人杀',
+        ...entry.players.flatMap((player) => [player.name, player.modelLabel]),
+      ]
+        .join(' ')
+        .toLocaleLowerCase();
+      return searchable.includes(query);
+    });
+  }, [games, saveFilter, saveQuery]);
   const importSave = async (file?: File) => {
     if (!file) return;
     setImporting(true);
@@ -339,11 +360,55 @@ function Lobby({
             {games.length} 局 · {activeGames.length} 局进行中
           </span>
         </div>
+        {games.length > 0 && (
+          <div className="save-controls">
+            <div className="save-filter" aria-label="存档状态筛选">
+              {[
+                { id: 'all', label: '全部', count: games.length },
+                { id: 'active', label: '进行中', count: activeGames.length },
+                { id: 'finished', label: '已结算', count: games.length - activeGames.length },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  className={saveFilter === option.id ? 'active' : ''}
+                  aria-pressed={saveFilter === option.id}
+                  onClick={() => setSaveFilter(option.id as typeof saveFilter)}
+                >
+                  {option.label}
+                  <span>{option.count}</span>
+                </button>
+              ))}
+            </div>
+            <label className="save-search">
+              <span>查找</span>
+              <input
+                value={saveQuery}
+                onChange={(event) => setSaveQuery(event.target.value)}
+                placeholder="对局名、玩家或模型标签"
+                aria-label="搜索本地存档"
+              />
+            </label>
+          </div>
+        )}
         {!games.length ? (
           <div className="empty">还没有存档。新建一局，座位已按经典 7 人配置准备好。</div>
+        ) : !filteredGames.length ? (
+          <div className="empty save-empty">
+            <b>没有符合条件的存档</b>
+            <span>可以换个关键词，或切换到其他状态查看。</span>
+            <button
+              className="ghost"
+              onClick={() => {
+                setSaveFilter('all');
+                setSaveQuery('');
+              }}
+            >
+              清除筛选
+            </button>
+          </div>
         ) : (
           <div className="game-grid">
-            {games.map((g) => (
+            {filteredGames.map((g) => (
               <article className={`save-card ${isCollarGame(g) ? 'collar-save' : ''}`} key={g.id}>
                 <div>
                   <span className={`phase-dot ${g.phase === 'ended' ? 'ended' : ''}`} />
